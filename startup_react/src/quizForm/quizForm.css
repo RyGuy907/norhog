@@ -1,0 +1,39 @@
+.quiz-form {
+  max-width: 760px;
+}
+
+.difficulty-editor {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background-color: var(--card);
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.difficulty-editor legend {
+  float: none;
+  width: auto;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--navy);
+  padding: 0 6px;
+}
+
+.question-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.time-limit {
+  max-width: 10rem;
+}
+
+.image-preview {
+  display: block;
+  margin-top: 0.5rem;
+  max-width: 300px;
+  max-height: 200px;
+  object-fit: cover;
+  border-radius: 6px;
+}

@@ -1,0 +1,7 @@
+{
+  "hostname": "cluster0.xxxxx.mongodb.net",
+  "userName": "your-atlas-db-user",
+  "password": "your-atlas-db-password",
+  "s3Bucket": "your-image-bucket-name (optional - omit to disable image uploads)",
+  "s3Region": "us-east-1"
+}

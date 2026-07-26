@@ -1,194 +1,251 @@
-body {
-  font-family: Arial, sans-serif;
-}
-
-header, footer {
-  background-color: #0f1f2cea; 
-  color: #ffffff; 
-  padding: 20px;
-}
-
-nav menu {
-  display: flex;
-  justify-content: flex-end;
-  gap: 15px;
-}
-
-nav menu li {
-  display: inline;
-}
-
-nav menu li a {
-  font-size: 0.9rem;
-  color: #ffffff;
-  text-decoration: none;
-  font-weight: bold;
-}
-
-nav menu li a:hover {
-  text-decoration: underline;
-  color: #bbbbbb;
-}
-
-
-main {
-  padding: 20px;
-}
-
-main h2 {
-  font-size: 2rem;
-  margin-bottom: 20px;
-}
-
-#tcount, #scount {
-  border: none;
-}
-main img {
-  max-width: 100%;
-  height: auto;
+.quiz-header-image {
+  max-width: min(100%, 420px);
+  max-height: 260px;
+  object-fit: cover;
+  object-position: top;
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  margin-bottom: 14px;
   display: block;
-  margin-bottom: 15px;
+}
+
+.difficulty-tag {
+  color: var(--muted);
+  font-size: 0.95rem;
+  text-transform: capitalize;
+}
+
+.no-times {
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* Post-game summary card */
+@keyframes summary-in {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.game-summary {
+  background-color: var(--card);
+  border: 1px solid var(--line);
+  border-top: 4px solid var(--gold);
+  border-radius: 10px;
+  box-shadow: var(--shadow-hover);
+  padding: 14px 18px;
+  margin: 18px 0 6px;
+  animation: summary-in 0.35s ease-out;
+}
+
+.game-summary h5 {
+  color: var(--navy);
+  font-family: Georgia, serif;
+  margin-bottom: 8px;
+}
+
+.game-summary ul {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 28px;
+  padding: 0;
+  margin: 0;
+}
+
+.game-summary li strong {
+  color: var(--navy);
+}
+
+.my-best {
+  background-color: var(--card);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--gold);
+  border-radius: 8px;
+  padding: 8px 14px;
+  display: inline-block;
 }
 
 main p {
-  font-size: 1.1rem;
-  margin-bottom: 20px;
+  font-size: 1.02rem;
 }
 
+.top-scores {
+  list-style: none;
+  padding: 0;
+  margin-bottom: 18px;
+}
+
+.top-scores li {
+  padding: 4px 0;
+  border-bottom: 1px dashed var(--line);
+  font-size: 0.95rem;
+}
+
+.top-scores li:last-child {
+  border-bottom: none;
+}
+
+.login-prompt {
+  background-color: rgba(201, 162, 39, 0.15);
+  border: 1px solid var(--gold);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-weight: 600;
+}
+
+/* Difficulty selector as pill buttons */
 fieldset.difficulty {
   border: none;
-  margin-bottom: 20px;
+  padding: 0;
+  margin-bottom: 14px;
+  display: flex;
+  gap: 8px;
+}
+
+fieldset.difficulty input[type='radio'] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
 }
 
 fieldset.difficulty label {
-  font-weight: bold;
-  margin-right: 10px;
+  padding: 7px 18px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background-color: var(--card);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
 }
 
-fieldset.difficulty input[type="radio"] {
-  margin-right: 20px;
+fieldset.difficulty label:hover {
+  border-color: var(--gold);
 }
 
+fieldset.difficulty label.selected {
+  background-color: var(--navy);
+  border-color: var(--navy);
+  color: #fff;
+}
 
-#tcount, #scount,  #timer, #score {
-  width: 100px;
-  margin-right: 10px;
-  text-align: center;
+/* Game controls */
+.game-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
 }
 
 #timer, #score {
-  font-size: 2rem;
+  width: 105px;
+  text-align: center;
+  font-size: 1.7rem;
+  font-family: Georgia, serif;
   border: none;
+  background-color: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 0;
+  color: var(--navy);
 }
 
-button {
-  background-color: #3da134;
-  color: #ffffff;
+#answerbox {
+  flex: 1;
+  min-width: 200px;
+  padding: 12px 14px;
+  font-size: 1.05rem;
+  border: 2px solid var(--navy);
+  border-radius: 8px;
+}
+
+#answerbox:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+
+/* Quiz page buttons (Play / End) */
+.quiz-btn {
+  background-color: var(--navy);
+  color: #fff;
   border: none;
-  padding: 6px 20px;
-  border-radius: 5px;
-  margin-top: 10px;
+  padding: 9px 28px;
+  border-radius: 8px;
   font-size: 1rem;
+  font-weight: 600;
 }
 
-button:hover {
-  background-color: #2b7224;
+.quiz-btn:hover {
+  background-color: var(--navy-light);
 }
 
-
-#answerBox {
-  width: 50%;
-  padding: 10px;
-  font-size: 1rem;
-}
-
-
-.rec-box {
-  background-color: #f8f9fa;
-  padding: 20px;
-  border-radius: 5px;
-  margin-top: 20px;
-  border: 1px solid #b7bbbe;
-}
-
-
-
-.rec-box h4 {
-  margin-bottom: 15px;
-}
-
-.recquiz {
-  cursor: pointer;
-}
-
-.recquiz:hover {
-  background-color: #e9ecef;
-}
-
-
-table {
+/* Question/answer table */
+.answer-table {
   width: 100%;
   border-collapse: collapse;
-  margin-bottom: 20px;
+  margin: 18px 0;
+  background-color: var(--card);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
 }
 
-table tr th, table tr td {
-  border: 1px solid #dee2e6;
-  padding: 10px;
+.answer-table th, .answer-table td {
+  border-bottom: 1px solid var(--line);
+  padding: 9px 14px;
   text-align: left;
 }
 
-table tr th {
-  background-color: #e9ecef;
-  font-weight: bold;
+.answer-table th {
+  background-color: var(--navy);
+  color: #fff;
+  font-weight: 600;
+  letter-spacing: 0.03em;
 }
 
-
-
-
-.comments {
-  width: 100%;
-  margin-top: 20px;
+.answer-table tr:last-child td {
+  border-bottom: none;
 }
 
-.comments button {
-  padding: 10px 20px;
-  margin-left: 10px;
-  font-size: 1rem;
+.answer-table .answer {
+  font-weight: 600;
+  width: 30%;
 }
 
-#comment_box {
-  width: 80%;
-  padding: 10px;
-  font-size: 1rem;
+/* Correct guesses flash green and settle on green text. */
+@keyframes flash-correct {
+  0% {
+    background-color: var(--green);
+    color: #fff;
+  }
+  100% {
+    background-color: transparent;
+  }
 }
 
-.comments tr td:first-child {
-  font-weight: bold;
-  width: 20%;
+.answer-table .answer.revealed-correct {
+  color: var(--green);
+  animation: flash-correct 0.9s ease-out;
 }
 
-
-html, body {
-  height: 100%;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
+/* Missed answers flash brick red and settle on red text. */
+@keyframes flash-missed {
+  0% {
+    background-color: var(--brick);
+    color: #fff;
+  }
+  100% {
+    background-color: transparent;
+  }
 }
 
-main {
-  flex-grow: 1;
-}
-
-footer {
-  background-color: #0f1f2cea;
-  color: #ffffff;
-  padding: 20px;
-  width: 100%;
-  text-align: left;
-}
-
-hr {
-  margin-top: 20px;
-  margin-bottom: 20px;
+.answer-table .answer.revealed-missed {
+  color: var(--brick);
+  animation: flash-missed 1.1s ease-out;
 }

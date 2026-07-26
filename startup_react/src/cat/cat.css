@@ -1,0 +1,20 @@
+.cat-page {
+  text-align: center;
+}
+
+.cat-image {
+  max-width: min(100%, 500px);
+  max-height: 60vh;
+  border-radius: 10px;
+  box-shadow: 0 6px 18px rgba(15, 31, 44, 0.25);
+  margin: 1rem auto;
+  display: block;
+}
+
+.cat-loading {
+  font-style: italic;
+}
+
+.cat-page .btn {
+  margin-top: 0.5rem;
+}

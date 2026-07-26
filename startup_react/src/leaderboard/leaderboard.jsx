@@ -1,54 +1,57 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import './leaderboard.css';
 
 export function Leaderboard() {
   const [scores, setScores] = useState([]);
-  const userName = localStorage.getItem('userName'); // Persistent user-specific data
 
   useEffect(() => {
-    const fetchScores = async () => {
-      try {
-        const response = await fetch('/api/scores');
-        if (response.ok) {
-          const data = await response.json();
-          setScores(data); // Update state only
-        } else {
-          console.error('Failed to fetch scores:', response.statusText);
-        }
-      } catch (error) {
-        console.error('Error fetching scores:', error);
-      }
-    };
-
-    fetchScores();
+    fetch('/api/scores')
+      .then((response) => (response.ok ? response.json() : []))
+      .then(setScores)
+      .catch((error) => console.error('Error fetching scores:', error));
   }, []);
 
   useEffect(() => {
-    const socket = new WebSocket(
-      `${window.location.origin.replace(/^http/, 'ws')}/ws`
-    );
+    let socket;
+    let cancelled = false;
 
-    socket.onmessage = (event) => {
-      const message = JSON.parse(event.data);
-      if (message.type === 'updateScores') {
-        setScores(message.data); // Update state dynamically
-      }
+    const connect = () => {
+      socket = new WebSocket(`${window.location.origin.replace(/^http/, 'ws')}/ws`);
+
+      socket.onmessage = (event) => {
+        const message = JSON.parse(event.data);
+        if (message.type === 'updateScores') {
+          setScores(message.allScores);
+        }
+      };
+
+      socket.onerror = (error) => {
+        console.error('WebSocket error:', error);
+      };
+
+      // Reconnect if the connection drops (e.g. service restart).
+      socket.onclose = () => {
+        if (!cancelled) {
+          setTimeout(connect, 3000);
+        }
+      };
     };
 
-    socket.onerror = (error) => {
-      console.error('WebSocket error:', error);
-    };
+    connect();
 
-    return () => socket.close();
+    return () => {
+      cancelled = true;
+      socket.close();
+    };
   }, []);
 
   const scoreRows = scores.length
     ? scores.map((score, index) => (
         <tr key={index}>
           <td>{index + 1}</td>
-          <td>{score.user || 'Unknown'}</td> {/* Use user field */}
-          <td>{score.score}</td>
-          <td>{score.date ? new Date(score.date).toLocaleString() : 'N/A'}</td>
+          <td>{score.user || 'Unknown'}</td>
+          <td>{score.points}</td>
+          <td>{score.quizzes}</td>
         </tr>
       ))
     : [
@@ -58,15 +61,15 @@ export function Leaderboard() {
       ];
 
   return (
-    <main className="container-fluid bg-secondary text-center">
+    <main className="leaderboard-page text-center">
       <h1>Leaderboard</h1>
-      <table className="table table-warning table-striped-columns">
+      <table className="table table-striped">
         <thead className="table-dark">
           <tr>
             <th>#</th>
             <th>Name</th>
-            <th>Score</th>
-            <th>Date</th>
+            <th>Total Points</th>
+            <th>Quizzes Played</th>
           </tr>
         </thead>
         <tbody>{scoreRows}</tbody>

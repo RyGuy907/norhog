@@ -1,0 +1,9 @@
+.about-page {
+  max-width: 720px;
+}
+
+.about-page h4 {
+  color: var(--navy);
+  margin-top: 24px;
+  margin-bottom: 8px;
+}

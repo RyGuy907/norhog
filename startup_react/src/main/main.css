@@ -1,123 +1,154 @@
-body {
-  font-family: Arial, sans-serif;
+.hero {
+  text-align: center;
+  padding: 18px 0 6px;
+  margin-bottom: 18px;
 }
 
-header, footer {
-  background-color: #0f1f2cea;
-  color: #ffffff;
-  padding: 25px;
+.hero h1 {
+  color: var(--navy);
+  font-size: 2.4rem;
+  margin-bottom: 6px;
 }
 
-nav menu {
-  display: flex;
-  justify-content: flex-end;
-  gap: 15px;
+.tagline {
+  color: var(--muted);
+  font-size: 1.1rem;
+  font-style: italic;
 }
 
-nav menu li {
-  display: inline;
+.quiz-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 18px;
 }
 
-nav menu li a {
-  font-size: 0.9rem;
-  color: #ffffff;
-  font-weight: bold;
+.quiz-card {
+  background-color: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
   text-decoration: none;
-}
-
-nav menu li a:hover {
-  text-decoration: underline;
-  color: #bbbbbb;
-}
-
-main {
-  padding: 20px;
-}
-
-main h2 {
-  font-size: 2rem;
-  margin-bottom: 20px;
-  color: #0f1f2c;
-}
-
-.qlist {
-  list-style-type: none;
-}
-
-.qlist li {
-  margin-bottom: 15px;
-}
-
-.qlist li a {
-  font-size: 1.2rem;
-  text-decoration: none;
-}
-
-.qlist li a:hover {
-  text-decoration: underline;
-  color: #0056b3;
-}
-
-.rec-box {
-  background-color: #f8f9fa;
-  padding: 20px;
-  border-radius: 5px;
-  margin-top: 20px;
-  border: 1px solid #b7bbbe;
-}
-
-
-
-.rec-box h4 {
-  margin-bottom: 15px;
-}
-
-.recquiz {
-  cursor: pointer;
-}
-
-.recquiz:hover {
-  background-color: #e9ecef;
-}
-
-
-
-
-footer a:hover {
-  text-decoration: underline;
-}
-html, body {
-  height: 100%;
-  margin: 0;
+  color: var(--ink);
   display: flex;
   flex-direction: column;
+  transition: transform 0.15s, box-shadow 0.15s;
 }
 
-main {
-  flex-grow: 1;
+.quiz-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-hover);
+  color: var(--ink);
 }
 
-footer {
-  background-color: #0f1f2cea;
-  color: #ffffff;
-  padding: 20px;
+.quiz-card-image {
   width: 100%;
-  text-align: left;
+  height: 140px;
+  object-fit: cover;
+  /* Bias the crop toward the upper part of the image so portrait
+     subjects keep their heads in frame. */
+  object-position: center 22%;
+  border-bottom: 2px solid var(--gold);
 }
 
-hr {
-  margin-top: 20px;
-  margin-bottom: 20px;
-  border: 1px solid #c7c8c9;
-  opacity: 1;
+.quiz-card-body {
+  padding: 12px 14px 14px;
 }
 
-.btn {
-  background-color: #fff;
-  color: rgb(33,37,81);
-  border: none;
+.quiz-card-body h3 {
+  font-size: 1.1rem;
+  color: var(--navy);
+  margin-bottom: 6px;
 }
 
-.btn:hover {
-  background-color: #e9ecef;
+.quiz-card-body p {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin: 0;
+}
+
+/* Completed quizzes (best possible points earned) grey out */
+.quiz-card {
+  position: relative;
+}
+
+.quiz-card.completed {
+  background-color: #edeae2;
+  border-color: #d8d3c6;
+}
+
+.quiz-card.completed .quiz-card-image {
+  filter: grayscale(1);
+  opacity: 0.75;
+}
+
+.quiz-card.completed .quiz-card-body h3,
+.quiz-card.completed .quiz-card-body p {
+  color: var(--muted);
+}
+
+.completed-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 1;
+  background-color: var(--green);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 3px 10px;
+  border-radius: 999px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Star for a perfect run on all three difficulties */
+.quiz-star {
+  position: absolute;
+  top: 2px;
+  right: 10px;
+  z-index: 1;
+  color: var(--gold);
+  font-size: 1.9rem;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+/* View-all tile: navy tint layered over a random gallery image */
+.view-all-card {
+  background: linear-gradient(160deg, var(--navy-light), var(--navy));
+  background-size: cover;
+  background-position: center;
+  border-color: var(--navy);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 18px 14px;
+  min-height: 220px;
+}
+
+.view-all-card h3 {
+  color: #fff;
+  font-family: Georgia, serif;
+  font-size: 1.2rem;
+  margin: 4px 0;
+}
+
+.view-all-card p {
+  color: #cfd6de;
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.view-all-count {
+  font-family: Georgia, serif;
+  font-size: 2.4rem;
+  font-weight: bold;
+  color: var(--gold);
+  line-height: 1;
+}
+
+.gallery-grid {
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
 }

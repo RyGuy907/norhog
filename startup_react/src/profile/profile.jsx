@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { shuffle } from '../shuffle';
 import './profile.css';
 
 const AuthState = {
@@ -13,38 +14,37 @@ export function Profile() {
   const [authState, setAuthState] = useState(userName ? AuthState.Authenticated : AuthState.Unauthenticated);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [creationDate, setCreationDate] = useState(localStorage.getItem('creationDate') || '');
-  const [bestScore, setBestScore] = useState(0);
-  const [bestTime, setBestTime] = useState(null);
+  const [creationDate, setCreationDate] = useState('');
+  const [totalPoints, setTotalPoints] = useState(0);
+  const [myScores, setMyScores] = useState([]);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [quizzes, setQuizzes] = useState([]);
 
   const clearUserData = () => {
     localStorage.removeItem('userName');
-    localStorage.removeItem('userToken');
-    localStorage.removeItem('creationDate');
     setUserName('');
     setAuthState(AuthState.Unauthenticated);
-    setBestScore(0);
-    setBestTime(null);
+    setTotalPoints(0);
+    setMyScores([]);
     setCreationDate('');
+  };
+
+  const setLoggedIn = (data) => {
+    localStorage.setItem('userName', data.email);
+    setUserName(data.email);
+    setCreationDate(data.creationDate ? new Date(data.creationDate).toLocaleDateString() : 'N/A');
+    setAuthState(AuthState.Authenticated);
+    setErrorMsg('');
+    window.dispatchEvent(new Event('authChanged'));
   };
 
   const fetchScores = async () => {
     try {
-      const response = await fetch('/api/scores');
+      const response = await fetch('/api/scores/me');
       if (response.ok) {
         const data = await response.json();
-
-        const userScores = data.filter((score) => score.user === userName);
-        const highestScore = userScores.reduce((max, score) => (score.score > max ? score.score : max), 0);
-        const fastestTime = userScores.reduce(
-          (min, score) => (min === null || score.timeLeft > min ? score.timeLeft : min),
-          null
-        );
-
-        setBestScore(highestScore);
-        setBestTime(fastestTime);
-      } else {
-        console.error('Failed to fetch scores:', response.statusText);
+        setTotalPoints(data.total);
+        setMyScores(data.scores);
       }
     } catch (error) {
       console.error('Error fetching scores:', error);
@@ -61,17 +61,10 @@ export function Profile() {
 
       if (response.ok) {
         const data = await response.json();
-        clearUserData();
-        localStorage.setItem('userName', email);
-        localStorage.setItem('userToken', data.token);
-        setUserName(email);
-        setAuthState(AuthState.Authenticated);
-        const currentDate = new Date().toLocaleDateString();
-        localStorage.setItem('creationDate', currentDate);
-        setCreationDate(currentDate);
-        await fetchScores();
+        setLoggedIn(data);
       } else {
-        alert('Invalid email or password');
+        const data = await response.json().catch(() => null);
+        setErrorMsg(data?.msg || 'Invalid email or password');
       }
     } catch (error) {
       console.error('Error logging in:', error);
@@ -87,37 +80,66 @@ export function Profile() {
       });
 
       if (response.ok) {
-        alert('Account created successfully. Logging you in...');
-        clearUserData();
-        await login(email, password);
-      } else if (response.status === 409) {
-        alert('An account with this email already exists.');
+        const data = await response.json();
+        setLoggedIn(data);
       } else {
-        alert('Failed to create account. Please try again.');
+        const data = await response.json().catch(() => null);
+        setErrorMsg(data?.msg || 'Failed to create account. Please try again.');
       }
     } catch (error) {
       console.error('Error creating account:', error);
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
     clearUserData();
+    window.dispatchEvent(new Event('authChanged'));
     navigate('/');
   };
 
+  // Restore the session from the auth cookie on mount.
   useEffect(() => {
-    if (authState === AuthState.Authenticated) {
-      fetchScores();
+    const restoreSession = async () => {
+      try {
+        const response = await fetch('/api/auth/me');
+        if (response.ok) {
+          const data = await response.json();
+          setLoggedIn(data);
+          fetchScores(data.email);
+        } else {
+          clearUserData();
+        }
+      } catch (error) {
+        console.error('Error restoring session:', error);
+      }
+    };
+    restoreSession();
+
+    fetch('/api/quizzes')
+      .then((response) => (response.ok ? response.json() : []))
+      .then((data) => setQuizzes(shuffle(data)))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (authState === AuthState.Authenticated && userName) {
+      fetchScores(userName);
     }
-  }, [authState]);
+  }, [authState, userName]);
 
   return (
     <main className="container">
       <div className="row">
         <div className="col-md-8">
           {authState === AuthState.Unauthenticated ? (
-            <>
+            <div className="profile-card">
               <h2>Login or Create an Account</h2>
+              {errorMsg && <div className="alert alert-danger">{errorMsg}</div>}
               <div className="mb-3">
                 <label htmlFor="email" className="label">E-mail:</label>
                 <input
@@ -136,7 +158,7 @@ export function Profile() {
                   type="password"
                   id="password"
                   name="password"
-                  placeholder="Password"
+                  placeholder="Password (8+ characters)"
                   className="form-control"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -156,28 +178,48 @@ export function Profile() {
               >
                 Create Account
               </button>
-            </>
+            </div>
           ) : (
             <>
               <h2>Your Profile</h2>
-              <table className="table">
+              <table className="styled-table">
                 <thead>
                   <tr>
                     <th>Username</th>
-                    <th>Best Score</th>
-                    <th>Best Time</th>
+                    <th>Total Points</th>
                     <th>Account Created</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
                     <td>{userName}</td>
-                    <td>{bestScore}</td>
-                    <td>{bestTime !== null ? `${60 - bestTime}s` : 'N/A'}</td>
-                    <td>{creationDate}</td>
+                    <td>{totalPoints}</td>
+                    <td>{creationDate || 'N/A'}</td>
                   </tr>
                 </tbody>
               </table>
+
+              <h4>Your Quizzes</h4>
+              {myScores.length === 0 ? (
+                <p>No quizzes played yet — every quiz is worth up to 10 points!</p>
+              ) : (
+                <table className="styled-table">
+                  <thead>
+                    <tr>
+                      <th>Quiz</th>
+                      <th>Best Points</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {myScores.map((entry) => (
+                      <tr key={entry.quiz}>
+                        <td>{quizzes.find((quiz) => quiz.slug === entry.quiz)?.title || entry.quiz}</td>
+                        <td>{entry.points} / 10</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
               <button className="btn btn-danger" onClick={handleLogout}>
                 Logout
               </button>
@@ -187,26 +229,13 @@ export function Profile() {
         <div className="col-md-4">
           <h4>Recommended Quizzes</h4>
           <ul className="list-group">
-            <li className="list-group-item">
-              <button className="btn" onClick={() => navigate('/quiz/seven-years-war')}>
-                The Seven Years' War
-              </button>
-            </li>
-            <li className="list-group-item">
-              <button className="btn" onClick={() => navigate('/quiz/napoleon')}>
-                Napoleon Bonaparte
-              </button>
-            </li>
-            <li className="list-group-item">
-              <button className="btn" onClick={() => navigate('/quiz/monarchs-france')}>
-                Monarchs of France
-              </button>
-            </li>
-            <li className="list-group-item">
-              <button className="btn" onClick={() => navigate('/quiz/american-revolution')}>
-                The American Revolution
-              </button>
-            </li>
+            {quizzes.slice(0, 4).map((quiz) => (
+              <li className="list-group-item" key={quiz.slug}>
+                <button className="btn" onClick={() => navigate(`/quiz/${quiz.slug}`)}>
+                  {quiz.title}
+                </button>
+              </li>
+            ))}
           </ul>
         </div>
       </div>
