@@ -1,0 +1,29 @@
+.gallery-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 18px 0 12px;
+}
+
+.gallery-search {
+  flex: 1 1 260px;
+  max-width: 420px;
+}
+
+.gallery-sort {
+  flex: 0 1 220px;
+}
+
+.gallery-count {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin-bottom: 12px;
+}
+
+.gallery-message {
+  background-color: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px 18px;
+  color: var(--muted);
+}

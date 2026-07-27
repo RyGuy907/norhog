@@ -88,10 +88,22 @@ and copies everything to `~/services/startup` on the instance. The script ends w
 ```bash
 ssh -i ~/keys/yourkey.pem ubuntu@yourdomain.com
 cd services/startup
-pm2 start index.js -n startup
+pm2 start index.js -n startup --env production
 pm2 save
 pm2 startup   # follow the printed instructions so pm2 survives reboots
 ```
+
+> **Important:** the service must run with `NODE_ENV=production` so session
+> cookies are issued with the `Secure` flag. If pm2 doesn't pick it up from
+> `--env production`, set it explicitly:
+> ```bash
+> pm2 delete startup
+> NODE_ENV=production pm2 start index.js -n startup
+> pm2 save
+> ```
+> Verify with `pm2 env 0 | grep NODE_ENV`. Without it, cookies are sent over
+> plain HTTP too — which is what makes local development work, but is not
+> what you want in production.
 
 ## 7. S3 bucket + IAM (quiz image uploads)
 

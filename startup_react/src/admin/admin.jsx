@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { QuizForm, emptyQuizForm } from '../quizForm/quizForm';
+import { usePageTitle } from '../usePageTitle';
 import './admin.css';
 
 export function Admin() {
+  usePageTitle('Admin');
   const [isAdmin, setIsAdmin] = useState(null); // null = checking
   const [quizzes, setQuizzes] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
@@ -71,7 +73,8 @@ export function Admin() {
 
   const startEdit = async (slug) => {
     try {
-      const response = await fetch(`/api/quiz/${slug}`);
+      // The public quiz payload omits answers, so editing loads the full one.
+      const response = await fetch(`/api/quiz/${slug}/full`);
       if (response.ok) {
         setFormInitial(await response.json());
         setEditingSlug(slug);
@@ -90,7 +93,7 @@ export function Admin() {
       image: suggestion.image || '',
       description: suggestion.description || '',
       instructions: suggestion.instructions || '',
-      timeLimit: suggestion.timeLimit || 60,
+      timeLimits: suggestion.timeLimits,
       difficulties: suggestion.difficulties,
     });
     setEditingSlug(null);
@@ -246,7 +249,7 @@ export function Admin() {
             {suggestions.map((suggestion) => (
               <tr key={suggestion._id}>
                 <td>{suggestion.title}</td>
-                <td>{suggestion.suggestedBy}</td>
+                <td>{suggestion.suggestedByName || suggestion.suggestedBy}</td>
                 <td>{suggestion.date ? new Date(suggestion.date).toLocaleDateString() : ''}</td>
                 <td>
                   <button className="btn btn-sm btn-secondary me-2" onClick={() => startReview(suggestion)}>

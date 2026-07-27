@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 // A quiz tile. status = {points, perfectCount} from /api/scores/me (or undefined).
@@ -6,15 +7,24 @@ import { Link } from 'react-router-dom';
 export function QuizCard({ quiz, status }) {
   const completed = status?.points === 10;
   const starred = status?.perfectCount === 3;
+  // Tall images are cropped from the top so the subject's head stays in
+  // frame; measured on load so any uploaded image is handled automatically.
+  const [portrait, setPortrait] = useState(false);
 
   return (
     <Link to={`/quiz/${quiz.slug}`} className={`quiz-card${completed ? ' completed' : ''}`}>
       {completed && <span className="completed-badge">Completed!</span>}
       {starred && <span className="quiz-star" title="Perfect on every difficulty">&#9733;</span>}
-      {quiz.image && <img src={quiz.image} alt="" className="quiz-card-image" />}
+      {quiz.image && (
+        <img
+          src={quiz.image}
+          alt=""
+          className={`quiz-card-image${portrait ? ' portrait' : ''}`}
+          onLoad={(e) => setPortrait(e.target.naturalHeight > e.target.naturalWidth)}
+        />
+      )}
       <div className="quiz-card-body">
         <h3>{quiz.title}</h3>
-        {quiz.description && <p>{quiz.description}</p>}
       </div>
     </Link>
   );

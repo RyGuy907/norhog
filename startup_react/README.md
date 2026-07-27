@@ -8,8 +8,8 @@ history questions, then compete for spots on a live leaderboard.
 ## Features
 
 - **Timed quizzes** — three difficulty levels (easy/medium/hard) of fill-in-the-blank
-  history questions with a per-quiz time limit; type a correct answer and it's revealed
-  instantly.
+  history questions, each with its own time limit (2/3/4 minutes by default); type a
+  correct answer and it's revealed instantly.
 - **Admin quiz builder** — quizzes live in the database, not the code. Admins get a
   quiz manager UI to create, edit, and delete quizzes: title, description, image,
   time limit, and any number of questions per difficulty.
@@ -57,10 +57,13 @@ React (Vite) SPA  ──HTTP──>  Express REST API  ──>  MongoDB Atlas
 | PUT    | `/api/quiz/:slug`     | admin | Update a quiz |
 | DELETE | `/api/quiz/:slug`     | admin | Delete a quiz, its scores, and its S3 image |
 | POST   | `/api/quiz-image-url` | admin | Presigned S3 upload URL for a quiz image |
-| POST   | `/api/score`          | ✅    | Submit a validated attempt; broadcasts new leaderboards |
-| GET    | `/api/scores`         | —     | Total-points leaderboard; `?quiz=&difficulty=` fastest perfect runs |
+| GET    | `/api/quiz/:slug/full`| admin | Full quiz including plaintext answers (for editing) |
+| POST   | `/api/attempt`        | —     | Start a run; returns a single-use, server-timed attempt token |
+| POST   | `/api/attempt/finish` | —     | End a run: records the score if signed in, reveals the answer key |
+| GET    | `/api/scores`         | —     | Total-points leaderboard; `?quiz=` all three fastest-time boards; `?quiz=&difficulty=` one board |
 | GET    | `/api/scores/me`      | ✅    | Your per-quiz best points and total |
-| GET    | `/api/scores/best`    | ✅    | Your best attempt for a quiz + difficulty |
+| GET    | `/api/scores/best`    | ✅    | Your bests for a quiz (`?quiz=` all difficulties, or `&difficulty=` one) |
+| DELETE | `/api/user`           | ✅    | Permanently delete your account, scores, and suggestions |
 | POST   | `/api/suggestion`     | ✅    | Submit a quiz suggestion to the review queue |
 | GET    | `/api/suggestions`    | admin | List pending suggestions |
 | DELETE | `/api/suggestions/:id`| admin | Remove (reject or after approving) a suggestion |
@@ -73,11 +76,54 @@ points, medium at 8, and hard at 10, scaled by the fraction of questions answere
 (rounded). A quiz counts once toward the total — retakes can only improve its best. Quiz
 pages also keep a fastest-times board per difficulty.
 
+### Security
+
+- **Input sanitization** ([service/security.js](service/security.js)) strips MongoDB
+  operator keys (`$…`, dotted, and prototype-polluting keys) from every request body,
+  query string, cookie, and route param, so user input can't be reinterpreted as a
+  query operator. Database helpers independently reject non-string keys as a second layer.
+- **Type-safe validation** — every string field goes through a checked reader with a
+  length cap; allowlists use `Object.hasOwn` rather than `in` so prototype keys like
+  `constructor` can't slip through.
+- **Crash resistance** — all async routes are wrapped so a thrown error becomes a 500
+  instead of killing the process, backed by a global error handler.
+- **Rate limiting** — 20 attempts per 15 minutes per IP on login/registration
+  (brute-force and signup-spam protection), 60/minute on writes.
+- **Sessions** — bcrypt-hashed passwords (72-byte cap, since bcrypt truncates),
+  constant-time login regardless of whether the email exists, rotating uuid tokens in
+  `httpOnly`/`sameSite=strict` cookies with a 7-day expiry, `Secure` in production.
+- **Data exposure** — public endpoints return display names only; emails, hashes, and
+  tokens never leave the server.
+- **Score integrity** — pressing Play issues a single-use attempt token; the server
+  records the start time and derives elapsed time from its own clock, so a client can't
+  claim a faster run than it played. Attempts can't be replayed, used by another
+  account, or submitted after the time limit, and implausibly fast runs are rejected.
+- **Locked answers** — quiz payloads never contain readable answers. Each accepted
+  spelling ships as a salted digest (to match a guess against) plus a ciphertext of the
+  display answer keyed by that spelling, so the browser can only decrypt an answer it
+  actually guessed; the rest are released when the run ends. Matching stays local, so
+  typing costs no network requests. The salt is regenerated per response.
+
 ### Admin role
 
 There is no self-service admin signup. To make an account an admin: register normally,
 then in MongoDB Atlas (Browse Collections → `quiz.users`) add `"role": "admin"` to your
 user document. The Admin nav item and quiz manager appear on next page load.
+
+## Tests
+
+Vitest across both halves of the app — 44 tests covering the logic most likely to
+break silently: guess normalization and the accepted-answer expansion (including
+roman-numeral handling), the client/server answer-lock agreement, request
+sanitization and rate limiting, and quiz-card completion states.
+
+```bash
+npm test            # frontend (Vitest + React Testing Library)
+```
+
+```bash
+cd service && npm test    # backend (Vitest)
+```
 
 ## Running locally
 

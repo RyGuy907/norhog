@@ -1,10 +1,16 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { shuffle } from '../shuffle';
+import { usePageTitle } from '../usePageTitle';
 import { QuizCard, fetchQuizStatuses } from '../quizCard';
 import './main.css';
 
+// Escapes only what could break out of a quoted CSS url(). encodeURI would
+// double-encode URLs that already contain percent escapes (e.g. %20 -> %2520).
+const cssUrl = (url) => url.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+
 export function Main() {
+  usePageTitle();
   const navigate = useNavigate();
   const [quizzes, setQuizzes] = useState([]);
   const [recommended, setRecommended] = useState([]);
@@ -17,11 +23,16 @@ export function Main() {
       .then((response) => (response.ok ? response.json() : []))
       .then((data) => {
         setQuizzes(data);
-        setFeatured(shuffle(data).slice(0, 8));
+        const picks = shuffle(data).slice(0, 8);
+        setFeatured(picks);
         setRecommended(shuffle(data).slice(0, 4));
-        const images = data.filter((quiz) => quiz.image);
-        if (images.length) {
-          setGalleryImage(images[Math.floor(Math.random() * images.length)].image);
+        // Background for the view-all tile: prefer a quiz NOT already on show.
+        const featuredSlugs = new Set(picks.map((quiz) => quiz.slug));
+        const pool = data.filter((quiz) => quiz.image && !featuredSlugs.has(quiz.slug));
+        const fallback = data.filter((quiz) => quiz.image);
+        const source = pool.length ? pool : fallback;
+        if (source.length) {
+          setGalleryImage(source[Math.floor(Math.random() * source.length)].image);
         }
       })
       .catch(() => {});
@@ -37,7 +48,7 @@ export function Main() {
       </div>
 
       <div className="row">
-        <div className="col-md-8">
+        <div className="col-md-9">
           <h2>Quizzes</h2>
           <div className="quiz-grid">
             {featured.map((quiz) => (
@@ -48,7 +59,7 @@ export function Main() {
               className="quiz-card view-all-card"
               style={
                 galleryImage
-                  ? { backgroundImage: `linear-gradient(160deg, rgba(29, 58, 87, 0.82), rgba(18, 38, 58, 0.92)), url(${galleryImage})` }
+                  ? { backgroundImage: `linear-gradient(160deg, rgba(29, 58, 87, 0.82), rgba(18, 38, 58, 0.92)), url("${cssUrl(galleryImage)}")` }
                   : undefined
               }
             >
@@ -59,7 +70,7 @@ export function Main() {
           </div>
         </div>
 
-        <div className="col-md-4">
+        <div className="col-md-3">
           <div className="rec-box">
             <h4>Recommended Quizzes</h4>
             <ul className="recquiz list-group">

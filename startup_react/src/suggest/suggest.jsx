@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { QuizForm, emptyQuizForm } from '../quizForm/quizForm';
+import { usePageTitle } from '../usePageTitle';
 
 export function Suggest() {
+  usePageTitle('Suggest a Quiz');
   const [loggedIn, setLoggedIn] = useState(null); // null = checking
   const [submitted, setSubmitted] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');

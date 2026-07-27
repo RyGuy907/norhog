@@ -18,12 +18,13 @@
 
 .quiz-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   gap: 18px;
 }
 
 .quiz-card {
-  background-color: var(--card);
+  position: relative;
+  background-color: var(--navy);
   border: 1px solid var(--line);
   border-radius: 10px;
   overflow: hidden;
@@ -32,6 +33,8 @@
   color: var(--ink);
   display: flex;
   flex-direction: column;
+  /* Landscape tile: mostly image, with the title band over the bottom. */
+  aspect-ratio: 3 / 2;
   transition: transform 0.15s, box-shadow 0.15s;
 }
 
@@ -41,30 +44,37 @@
   color: var(--ink);
 }
 
+/* The image fills the whole tile; the title sits over it at the bottom on a
+   dark scrim so it stays readable against any artwork. */
 .quiz-card-image {
+  position: absolute;
+  inset: 0;
   width: 100%;
-  height: 140px;
+  height: 100%;
   object-fit: cover;
-  /* Bias the crop toward the upper part of the image so portrait
-     subjects keep their heads in frame. */
-  object-position: center 22%;
-  border-bottom: 2px solid var(--gold);
+  object-position: center;
+}
+
+/* Portraits: keep the top of the image (heads, faces, upper composition)
+   rather than centring and losing it to the crop. */
+.quiz-card-image.portrait {
+  object-position: center top;
 }
 
 .quiz-card-body {
-  padding: 12px 14px 14px;
+  position: relative;
+  margin-top: auto;
+  padding: 22px 12px 10px;
+  background: linear-gradient(to top, rgba(9, 20, 30, 0.92) 35%, rgba(9, 20, 30, 0));
+  border-bottom: 3px solid var(--gold);
 }
 
 .quiz-card-body h3 {
-  font-size: 1.1rem;
-  color: var(--navy);
-  margin-bottom: 6px;
-}
-
-.quiz-card-body p {
-  font-size: 0.85rem;
-  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1.25;
+  color: #fff;
   margin: 0;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
 }
 
 /* Completed quizzes (best possible points earned) grey out */
@@ -82,9 +92,8 @@
   opacity: 0.75;
 }
 
-.quiz-card.completed .quiz-card-body h3,
-.quiz-card.completed .quiz-card-body p {
-  color: var(--muted);
+.quiz-card.completed .quiz-card-body h3 {
+  color: #e6e2d8;
 }
 
 .completed-badge {
@@ -124,26 +133,25 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 18px 14px;
-  min-height: 220px;
+  padding: 16px 14px;
 }
 
 .view-all-card h3 {
   color: #fff;
   font-family: Georgia, serif;
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   margin: 4px 0;
 }
 
 .view-all-card p {
   color: #cfd6de;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   margin: 0;
 }
 
 .view-all-count {
   font-family: Georgia, serif;
-  font-size: 2.4rem;
+  font-size: 2.1rem;
   font-weight: bold;
   color: var(--gold);
   line-height: 1;
@@ -151,4 +159,11 @@
 
 .gallery-grid {
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+
+/* Four across on desktop rather than letting auto-fill squeeze in five. */
+@media (min-width: 992px) {
+  .gallery-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
 }

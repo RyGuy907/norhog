@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
+import { usePageTitle } from '../usePageTitle';
 import './cat.css';
 
 export function Cat() {
+  usePageTitle('A Secret');
   const [cat, setCat] = useState(null);
   const [loading, setLoading] = useState(true);
 
