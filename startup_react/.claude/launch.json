@@ -9,6 +9,8 @@
     },
     {
       "name": "service",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "service", "start"],
       "url": "http://localhost:4000",
       "port": 4000
     }
