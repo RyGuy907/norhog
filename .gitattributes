@@ -1,0 +1,7 @@
+# Shell scripts run on Linux. A CRLF checkout on Windows makes the shebang fail
+# with "bad interpreter: /usr/bin/env bash^M", so force LF regardless of platform.
+*.sh text eol=lf
+
+# Workflow files are parsed on Linux runners; keep them consistent too.
+*.yml text eol=lf
+*.yaml text eol=lf
