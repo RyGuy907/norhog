@@ -52,7 +52,31 @@ One-time setup for hosting Norhog on AWS. After this, every deploy is just
      - HTTP (80) — anywhere
      - HTTPS (443) — anywhere
      - **Do not** open port 4000 — Caddy proxies to it internally.
-2. If using stock Ubuntu, install the runtime:
+2. **Swap first — before installing anything.** On a 0.5 GB `t3.nano` this is not an
+   optimisation, it is what keeps the box responsive while apt works. A fresh Ubuntu
+   AMI runs `unattended-upgrades` in the background over ~78 pending packages, and
+   piling `nvm`, a global `npm` install, and a 36 MB `apt update` on top of that with
+   no swap can drive it into thrashing. The failure is confusing rather than obvious:
+   the kernel keeps completing TCP handshakes, so ports look open, but no userspace
+   process gets scheduled — SSH cannot even emit its banner and HTTP requests hang
+   with zero bytes returned.
+   ```bash
+   sudo fallocate -l 1G /swapfile
+   sudo chmod 600 /swapfile
+   sudo mkswap /swapfile
+   sudo swapon /swapfile
+   echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab   # survives reboot
+   free -h   # confirm the swap line is non-zero
+   ```
+   Then let the pending upgrades finish deliberately, rather than racing them:
+   ```bash
+   sudo apt upgrade -y
+   ```
+   If the instance does become unresponsive: wait a few minutes before rebooting so a
+   partial `dpkg` transaction can finish, and check **Actions → Monitor and
+   troubleshoot → Get system log** for `Out of memory: Killed process` lines to
+   confirm the cause.
+3. Install the runtime:
    ```bash
    # Node 22 via nvm — matches local dev (v22.11.0) and is in LTS maintenance.
    # Do NOT install Node 20: it went end-of-life in April 2026.
@@ -71,16 +95,6 @@ One-time setup for hosting Norhog on AWS. After this, every deploy is just
 
    # Confirm it came from Cloudsmith and not Ubuntu's older universe package.
    caddy version   # expect 2.10.x; a 2.7.x means the repo line did not take
-   ```
-3. **Swap** — required on `t3.nano` (0.5 GB), harmless on larger types. Without it an
-   `npm ci` that has to compile `bcrypt` from source can get OOM-killed mid-deploy:
-   ```bash
-   sudo fallocate -l 1G /swapfile
-   sudo chmod 600 /swapfile
-   sudo mkswap /swapfile
-   sudo swapon /swapfile
-   echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab   # survives reboot
-   free -h   # confirm the swap line is non-zero
    ```
 4. **Log rotation** — unrotated pm2 logs are what actually fills a small root volume:
    ```bash
