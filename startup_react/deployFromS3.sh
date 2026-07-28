@@ -58,9 +58,37 @@ fi
 mv "$TMP/new" "$DEST"
 ln -sf "$CONFIG" "$DEST/dbConfig.json"
 
+# Restores the previous release and makes sure it is serving again. Safe to call
+# any time after the swap above.
+rollback() {
+  if [ ! -d "$DEST.prev" ]; then
+    echo "!!! No previous release to roll back to" >&2
+    return 1
+  fi
+  echo "!!! Rolling back to the previous release" >&2
+  rm -rf "$DEST"
+  mv "$DEST.prev" "$DEST"
+  cd "$DEST" || return 1
+  pm2 restart "$SERVICE" --update-env
+  sleep 6
+  if curl -fsS -m 10 -o /dev/null "$HEALTH"; then
+    echo "!!! Rollback succeeded — the site is serving the previous release" >&2
+    return 0
+  fi
+  echo "!!! ROLLBACK ALSO FAILED — the site is down, manual intervention needed" >&2
+  return 1
+}
+
 cd "$DEST" || exit 1
 echo "==> Installing production dependencies"
-npm ci --omit=dev || exit 1
+if ! npm ci --omit=dev; then
+  # The old process is still running from the previous inode, so the site is up,
+  # but the release directory now holds code that was never installed. Put the
+  # previous release back rather than leaving that inconsistency behind.
+  echo "!!! npm ci failed" >&2
+  rollback
+  exit 1
+fi
 
 echo "==> Restarting"
 pm2 restart "$SERVICE" --update-env || pm2 start index.js -n "$SERVICE" --update-env
@@ -78,19 +106,5 @@ if curl -fsS -m 10 -o /dev/null "$HEALTH"; then
 fi
 
 echo "!!! Smoke check FAILED" >&2
-if [ -d "$DEST.prev" ]; then
-  echo "!!! Rolling back to the previous release" >&2
-  rm -rf "$DEST"
-  mv "$DEST.prev" "$DEST"
-  cd "$DEST" || exit 1
-  pm2 restart "$SERVICE" --update-env
-  sleep 6
-  if curl -fsS -m 10 -o /dev/null "$HEALTH"; then
-    echo "!!! Rollback succeeded — the site is serving the previous release" >&2
-  else
-    echo "!!! ROLLBACK ALSO FAILED — the site is down, manual intervention needed" >&2
-  fi
-else
-  echo "!!! No previous release to roll back to" >&2
-fi
+rollback
 exit 1
