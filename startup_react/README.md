@@ -112,10 +112,19 @@ user document. The Admin nav item and quiz manager appear on next page load.
 
 ## Tests
 
-Vitest across both halves of the app — 44 tests covering the logic most likely to
-break silently: guess normalization and the accepted-answer expansion (including
-roman-numeral handling), the client/server answer-lock agreement, request
-sanitization and rate limiting, and quiz-card completion states.
+Vitest across both halves of the app — 68 tests:
+
+- **Unit** — guess normalization and accepted-answer expansion (including
+  roman-numeral handling), shuffling, request sanitization, and rate limiting.
+- **Component** — `QuizCard` rendered with React Testing Library, covering the
+  completed and perfect-run states.
+- **Contract** — the browser's answer-unlocking verified against a
+  re-implementation of the server's locking, so the two halves can't drift apart.
+- **Integration** — the Express app driven end to end with supertest (real
+  routing, middleware, auth, and validation; only the database is stubbed):
+  registration and login, session restore and logout, admin authorization,
+  the full attempt/finish flow, and injection defences including the
+  operator-in-a-cookie vector.
 
 ```bash
 npm test            # frontend (Vitest + React Testing Library)
