@@ -1,7 +1,7 @@
 # Deployment Checklist — AWS EC2 + Caddy + MongoDB Atlas
 
 One-time setup for hosting Norhog on AWS. After this, every deploy is just
-`./deployService.sh -k key.pem -h yourdomain.com -s startup`.
+`./deployService.sh -k key.pem -h norhog.com -s startup`.
 
 ## 1. MongoDB Atlas (free)
 
@@ -77,32 +77,68 @@ One-time setup for hosting Norhog on AWS. After this, every deploy is just
 
 EC2 → Elastic IPs → **Allocate** → **Associate** with the instance.
 (Without this, the public IP changes every time the instance stops.)
-Now go back and add this IP to the Atlas network access list (step 1.3).
+Tick "Allow this Elastic IP address to be reassociated" so replacing the instance
+later is one action rather than two.
+
+**This deployment:** `44.231.115.187`, region `us-west-2`, instance
+`i-054760b34c781e845`.
+
+Now add that IP to Atlas → Network Access as `44.231.115.187/32` (step 1.3). The
+service exits at boot with a connection error until you do.
 
 ## 4. Domain
 
-1. Register a domain (Route 53, Namecheap, Porkbun — anywhere).
-2. Create DNS **A records** pointing to the Elastic IP:
-   - `yourdomain.com` → Elastic IP
-   - `*.yourdomain.com` → Elastic IP (optional, for subdomains)
-3. Wait for DNS to propagate (`nslookup yourdomain.com` shows the Elastic IP).
+`norhog.com` is registered and delegated to Route 53 nameservers.
+
+Route 53 → Hosted zones → `norhog.com` → **Create record**, twice:
+
+| Record name | Type | Value | TTL |
+|---|---|---|---|
+| *(leave empty — the apex)* | A | `44.231.115.187` | 300 |
+| `www` | A | `44.231.115.187` | 300 |
+
+A short TTL (300s) while setting up means mistakes cost five minutes, not a day.
+Raise it to 3600 once things are stable.
+
+Wait for propagation before touching Caddy — certificate provisioning fails if the
+record is not live yet, and Caddy then backs off before retrying:
+
+```bash
+nslookup norhog.com 8.8.8.8       # must show 44.231.115.187
+nslookup www.norhog.com 8.8.8.8   # must show 44.231.115.187
+```
 
 ## 5. Caddy
 
-Edit `/etc/caddy/Caddyfile` on the instance:
+Replace `/etc/caddy/Caddyfile` on the instance with:
 
 ```
-yourdomain.com {
-    reverse_proxy localhost:4000
+norhog.com {
+	encode zstd gzip
+	reverse_proxy localhost:4000
+}
+
+www.norhog.com {
+	redir https://norhog.com{uri} permanent
 }
 ```
 
+Two things here are not in the stock template and both matter for this app:
+
+- **`encode zstd gzip`** — nothing else in the stack compresses. `express.static`
+  does not, and no compression middleware is installed, so without this line the
+  272 kB JS bundle goes over the wire uncompressed. With it, ~85 kB.
+- **`www` redirects to the apex rather than serving it.** Session cookies are
+  scoped to the host, so a user who logs in on `www.norhog.com` and later lands on
+  `norhog.com` would appear logged out. One canonical origin avoids that entirely.
+
 ```bash
 sudo systemctl restart caddy
+sudo systemctl status caddy --no-pager    # confirm active, no cert errors
 ```
 
 Caddy provisions HTTPS certificates automatically (needs the DNS record live first)
-and proxies WebSocket upgrades natively — `wss://yourdomain.com/ws` just works.
+and proxies WebSocket upgrades natively — `wss://norhog.com/ws` just works.
 
 ## 6. First deploy
 
@@ -113,7 +149,7 @@ and the script symlinks them back in. Do this before the first deploy or the scr
 will stop and tell you to:
 
 ```bash
-ssh -i ~/keys/yourkey.pem ubuntu@yourdomain.com
+ssh -i ~/keys/yourkey.pem ubuntu@norhog.com
 mkdir -p ~/config/startup
 nano ~/config/startup/dbConfig.json     # paste the same contents as your local copy
 chmod 600 ~/config/startup/dbConfig.json
@@ -126,7 +162,7 @@ This file is written once and never touched again by a deploy.
 From `startup_react/` on your machine (Git Bash on Windows):
 
 ```bash
-./deployService.sh -k ~/keys/yourkey.pem -h yourdomain.com -s startup
+./deployService.sh -k ~/keys/yourkey.pem -h norhog.com -s startup
 ```
 
 The script builds the frontend, bundles it with the service, and copies everything to
@@ -134,7 +170,7 @@ The script builds the frontend, bundles it with the service, and copies everythi
 `pm2 restart startup`, which fails the very first time — start it once manually:
 
 ```bash
-ssh -i ~/keys/yourkey.pem ubuntu@yourdomain.com
+ssh -i ~/keys/yourkey.pem ubuntu@norhog.com
 cd services/startup
 pm2 start index.js -n startup --env production
 pm2 save
@@ -157,7 +193,7 @@ pm2 startup   # follow the printed instructions so pm2 survives reboots
 
 Optional but recommended — without it the admin quiz form only accepts pasted image URLs.
 
-1. S3 → **Create bucket** (e.g. `norhog-quiz-images`, same region as the EC2 instance).
+1. S3 → **Create bucket** (e.g. `norhog-quiz-images`, us-west-2, same region as the EC2 instance).
    - Uncheck "Block all public access" (we'll scope public access to reads of `images/*` only).
 2. Bucket → Permissions → **Bucket policy**:
    ```json
@@ -177,7 +213,7 @@ Optional but recommended — without it the admin quiz form only accepts pasted 
    [{
      "AllowedHeaders": ["*"],
      "AllowedMethods": ["PUT"],
-     "AllowedOrigins": ["https://yourdomain.com", "http://localhost:5173", "http://localhost:4000"],
+     "AllowedOrigins": ["https://norhog.com", "http://localhost:5173", "http://localhost:4000"],
      "ExposeHeaders": []
    }]
    ```
@@ -196,11 +232,11 @@ Optional but recommended — without it the admin quiz form only accepts pasted 
    that policy → EC2 console → instance → Actions → Security → **Modify IAM role** → attach.
 6. **Local dev credentials:** IAM → Users → create a user with the same policy → access key
    → run `aws configure` locally.
-7. Add to `service/dbConfig.json`: `"s3Bucket": "norhog-quiz-images", "s3Region": "us-east-1"`.
+7. Add to `service/dbConfig.json`: `"s3Bucket": "norhog-quiz-images", "s3Region": "us-west-2"`.
 
 ## 8. Verify
 
-- `https://yourdomain.com` loads the app over HTTPS
+- `https://norhog.com` loads the app over HTTPS
 - register / login works; cookie visible in DevTools (httpOnly)
 - play a quiz logged in → score appears on the leaderboard
 - leaderboard open in a second browser updates live on submission
