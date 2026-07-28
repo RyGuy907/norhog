@@ -60,6 +60,19 @@ cd services/${service}
 # and skipping them roughly halves both the install peak and the disk footprint.
 npm ci --omit=dev
 pm2 restart ${service}
+
+# Smoke check: pm2 reporting "online" only means the process is alive, not that it
+# ever bound the port. A boot path that dies before app.listen leaves pm2 green
+# while every request through Caddy returns 502. Fail the deploy loudly instead.
+sleep 6
+if curl -fsS -m 10 -o /dev/null http://127.0.0.1:4000/api/quizzes; then
+  printf "\n----> Smoke check passed: service is answering on port 4000\n"
+else
+  printf "\n!!!! DEPLOY FAILED: nothing is answering on port 4000.\n"
+  printf "     pm2 may still report the process as online. Check:\n"
+  printf "       pm2 logs %s --lines 30\n" "${service}"
+  exit 1
+fi
 ENDSSH
 
 # Step 5

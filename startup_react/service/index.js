@@ -1,7 +1,5 @@
 import express from 'express';
 import cookieParser from 'cookie-parser';
-import { fileURLToPath } from 'url';
-import { resolve } from 'path';
 import bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 import * as DB from './database.js';
@@ -630,9 +628,18 @@ function start() {
   initWebSocket(httpService);
 }
 
-// Only boot when run directly — importing this module (e.g. from tests)
+// Boot unless the test runner imported us — importing this module from a test
 // should give you the Express app without opening a port or seeding.
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+//
+// This deliberately checks for the test runner rather than asking "am I the entry
+// point?". The previous version compared import.meta.url against
+// resolve(process.argv[1]), which works under `node index.js` but fails silently
+// under a process manager: pm2's fork mode points argv[1] at its own wrapper
+// script, so the comparison was false, start() never ran, and nothing ever
+// listened on the port. The service looked healthy — pm2 reported it online and
+// the database connected, because that is an import side effect — while every
+// request through Caddy returned 502.
+if (!process.env.VITEST) {
   await seedStarterQuizzes();
   start();
 }

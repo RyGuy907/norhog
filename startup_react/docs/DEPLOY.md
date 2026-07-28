@@ -213,7 +213,14 @@ pm2 startup   # follow the printed instructions so pm2 survives reboots
 > NODE_ENV=production pm2 start index.js -n startup
 > pm2 save
 > ```
-> Verify with `pm2 env 0 | grep NODE_ENV`. Without it, cookies are sent over
+> Verify with `pm2 env <id> | grep NODE_ENV`, where `<id>` is the app's id from
+> `pm2 list` — **not necessarily 0**. Installing `pm2-logrotate` first takes id 0,
+> which makes `pm2 env 0` report the module's environment and look like a failure.
+> The authoritative check reads the kernel's view of the process instead:
+> ```bash
+> sudo tr '\0' '\n' < /proc/$(pm2 pid startup | tail -1)/environ | grep NODE_ENV
+> ```
+> Without it, cookies are sent over
 > plain HTTP too — which is what makes local development work, but is not
 > what you want in production.
 
