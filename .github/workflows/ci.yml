@@ -1,0 +1,179 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+# The app lives in a subdirectory; the repo root holds older coursework.
+defaults:
+  run:
+    working-directory: startup_react
+
+jobs:
+  frontend:
+    name: Frontend — lint, tests, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Matches the server (nvm 22) and local dev. Also >= 22.12, which is
+          # where require(esm) landed — jsdom 27 needs that if it is ever taken.
+          node-version: 22
+          cache: npm
+          cache-dependency-path: startup_react/package-lock.json
+
+      - run: npm ci
+
+      # eslint currently reports 5 warnings (react-hooks/set-state-in-effect) and
+      # 0 errors, so this passes. Deliberately no --max-warnings 0 until those are
+      # cleaned up, otherwise CI would block on known, non-breaking findings.
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit and component tests
+        run: npm test
+
+      - name: Production build
+        run: npm run build
+
+      # Catches a syntax error in either deploy script before it can break a release.
+      - name: Deploy script syntax
+        run: bash -n deployService.sh && bash -n deployFromS3.sh
+
+  service:
+    name: Service — tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: startup_react/service/package-lock.json
+
+      # No dbConfig.json exists here, and none is needed: api.test.js mocks
+      # database.js, so the module that reads that file never loads, and
+      # imageStore.js tolerates its absence by design. Verified locally by
+      # running the suite with the file moved aside.
+      - run: npm ci
+        working-directory: startup_react/service
+
+      - name: API, contract, and unit tests
+        run: npm test
+        working-directory: startup_react/service
+
+  # Deploy lives in this workflow rather than a separate deploy.yml so that
+  # `needs:` gates it on the test jobs directly. A separate workflow would have to
+  # use `workflow_run`, which fires on completion regardless of outcome and then
+  # needs its own conclusion check and explicit ref handling — more moving parts
+  # for the same guarantee.
+  deploy:
+    name: Deploy to norhog.com
+    needs: [frontend, service]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    # Never let two deploys interleave on the box.
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    permissions:
+      id-token: write # required to request the OIDC token for AWS
+      contents: read
+    env:
+      AWS_REGION: us-west-2
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: startup_react/package-lock.json
+
+      - run: npm ci
+      - run: npm run build
+
+      # Mirrors deployService.sh's bundle exactly, with one deliberate omission:
+      # dbConfig.json. Only *.js and the two package manifests are copied, so the
+      # Atlas credentials never enter the artifact. The server holds its own copy.
+      - name: Assemble the deploy bundle
+        run: |
+          rm -rf build && mkdir build
+          cp -r dist build/public
+          cp service/*.js build/
+          rm -f build/*.test.js build/vitest.config.js
+          cp service/package.json service/package-lock.json build/
+          tar -czf artifact.tar.gz -C build .
+          echo "bundle contents:"
+          tar -tzf artifact.tar.gz | head -20
+          echo "no credentials in bundle:"
+          ! tar -tzf artifact.tar.gz | grep -q dbConfig.json && echo "  confirmed" || exit 1
+
+      # OIDC federation: GitHub presents a short-lived token and assumes the role.
+      # No long-lived AWS access keys are stored in this repository.
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-west-2
+
+      - name: Upload the artifact to S3
+        env:
+          BUCKET: ${{ vars.DEPLOY_BUCKET }}
+        run: aws s3 cp artifact.tar.gz "s3://${BUCKET}/${{ github.sha }}.tar.gz" --only-show-errors
+
+      # SSM runs the command on the instance. GitHub never opens a connection to
+      # the server, so port 22 stays closed to everything but your home IP.
+      - name: Trigger the deploy via SSM
+        env:
+          BUCKET: ${{ vars.DEPLOY_BUCKET }}
+          INSTANCE_ID: ${{ vars.INSTANCE_ID }}
+          SHA: ${{ github.sha }}
+        run: |
+          cat > /tmp/ssm-params.json <<EOF
+          {"commands":["runuser -l ubuntu -c '/home/ubuntu/bin/deployFromS3.sh s3://${BUCKET}/${SHA}.tar.gz'"]}
+          EOF
+          CMD_ID=$(aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --comment "Deploy ${SHA:0:7}" \
+            --parameters file:///tmp/ssm-params.json \
+            --timeout-seconds 600 \
+            --query Command.CommandId --output text)
+          echo "SSM command id: $CMD_ID"
+          echo "CMD_ID=$CMD_ID" >> "$GITHUB_ENV"
+
+      - name: Wait for the deploy and surface its output
+        env:
+          INSTANCE_ID: ${{ vars.INSTANCE_ID }}
+        run: |
+          aws ssm wait command-executed \
+            --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" || true
+
+          echo "--- remote stdout ---"
+          aws ssm get-command-invocation --command-id "$CMD_ID" \
+            --instance-id "$INSTANCE_ID" --query StandardOutputContent --output text
+
+          ERR=$(aws ssm get-command-invocation --command-id "$CMD_ID" \
+            --instance-id "$INSTANCE_ID" --query StandardErrorContent --output text)
+          if [ -n "$ERR" ] && [ "$ERR" != "None" ]; then
+            echo "--- remote stderr ---"
+            echo "$ERR"
+          fi
+
+          STATUS=$(aws ssm get-command-invocation --command-id "$CMD_ID" \
+            --instance-id "$INSTANCE_ID" --query Status --output text)
+          echo "SSM status: $STATUS"
+          [ "$STATUS" = "Success" ]
+
+      # The remote script already smoke-checks port 4000; this proves the whole
+      # path including Caddy and TLS from outside.
+      - name: Verify the live site
+        run: |
+          curl -fsS -m 20 -o /dev/null https://norhog.com/api/quizzes
+          CODE=$(curl -s -o /dev/null -w '%{http_code}' -m 20 https://norhog.com/)
+          echo "https://norhog.com -> $CODE"
+          [ "$CODE" = "200" ]
