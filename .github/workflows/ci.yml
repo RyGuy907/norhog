@@ -15,9 +15,9 @@ jobs:
     name: Frontend — lint, tests, build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           # Matches the server (nvm 22) and local dev. Also >= 22.12, which is
           # where require(esm) landed — jsdom 27 needs that if it is ever taken.
@@ -47,9 +47,9 @@ jobs:
     name: Service — tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -86,9 +86,9 @@ jobs:
     env:
       AWS_REGION: us-west-2
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
