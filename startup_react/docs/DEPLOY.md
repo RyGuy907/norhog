@@ -60,11 +60,17 @@ One-time setup for hosting Norhog on AWS. After this, every deploy is just
    . ~/.nvm/nvm.sh && nvm install 22 && nvm alias default 22
    npm install -g pm2
 
-   # Caddy
-   sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https curl
-   curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+   # Caddy. Note this differs from Caddy's official install docs, which are written
+   # for Debian: debian-keyring and debian-archive-keyring do not exist on Ubuntu
+   # 24.04 and apt-transport-https is obsolete (folded into apt). All three are
+   # unnecessary — adding the repo needs only curl, gpg, and CA certs.
+   sudo apt install -y curl gnupg ca-certificates
+   curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor --batch --yes -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
    curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
-   sudo apt update && sudo apt install caddy
+   sudo apt update && sudo apt install -y caddy
+
+   # Confirm it came from Cloudsmith and not Ubuntu's older universe package.
+   caddy version   # expect 2.10.x; a 2.7.x means the repo line did not take
    ```
 3. **Swap** — required on `t3.nano` (0.5 GB), harmless on larger types. Without it an
    `npm ci` that has to compile `bcrypt` from source can get OOM-killed mid-deploy:
