@@ -33,6 +33,11 @@ One-time setup for hosting Norhog on AWS. After this, every deploy is just
      native module is `bcrypt`, and since v6 it bundles a `linux-arm64` prebuild, so
      nothing compiles either way. If you take ARM, switch the AMI selector to
      **64-bit (Arm)** first; a `t4g` type is not selectable against an x86 AMI.
+   - Storage: 8 GiB gp3 is enough (~4 GiB free after the OS, swap file, and runtime),
+     and EBS volumes grow online if it ever isn't. Keep the default 3000 IOPS — gp3
+     includes it free at any size. **Tick "Encrypted"** with the default `aws/ebs`
+     key: it is free, and it is the one setting on that screen that cannot be changed
+     later without snapshotting and rebuilding the volume. Leave File systems as None.
    - Key pair: create one, download the `.pem`, `chmod 600` it
    - Security group inbound rules:
      - SSH (22) — *your IP only*
@@ -62,6 +67,10 @@ One-time setup for hosting Norhog on AWS. After this, every deploy is just
    sudo swapon /swapfile
    echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab   # survives reboot
    free -h   # confirm the swap line is non-zero
+   ```
+4. **Log rotation** — unrotated pm2 logs are what actually fills a small root volume:
+   ```bash
+   pm2 install pm2-logrotate
    ```
 
 ## 3. Elastic IP
