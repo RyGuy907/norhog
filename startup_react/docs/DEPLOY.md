@@ -29,6 +29,10 @@ One-time setup for hosting Norhog on AWS. After this, every deploy is just
    - Type: `t3.nano` — enough for this workload given a production-only install and the
      swap file below. Resize to `t3.micro` later if it struggles: stop, change type,
      start. The Elastic IP stays attached, so no DNS change and no new certificate.
+   - Architecture: x86_64. ARM (`t4g.nano`, ~$9/yr cheaper) also works — the only
+     native module is `bcrypt`, and since v6 it bundles a `linux-arm64` prebuild, so
+     nothing compiles either way. If you take ARM, switch the AMI selector to
+     **64-bit (Arm)** first; a `t4g` type is not selectable against an x86 AMI.
    - Key pair: create one, download the `.pem`, `chmod 600` it
    - Security group inbound rules:
      - SSH (22) — *your IP only*
