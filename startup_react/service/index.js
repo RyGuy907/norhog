@@ -1,5 +1,7 @@
 import express from 'express';
 import cookieParser from 'cookie-parser';
+import { fileURLToPath } from 'url';
+import { resolve } from 'path';
 import bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 import * as DB from './database.js';
@@ -602,24 +604,37 @@ app.use((_req, res) => {
   res.sendFile('index.html', { root: 'public' });
 });
 
-// Seed starter quizzes that aren't in the database yet (never overwrites edits).
-for (const quiz of seedQuizzes) {
-  if (!(await DB.getQuiz(quiz.slug))) {
-    await DB.addQuiz(quiz);
-    console.log(`Seeded quiz: ${quiz.slug}`);
+async function seedStarterQuizzes() {
+  // Seed starter quizzes that aren't in the database yet (never overwrites edits).
+  for (const quiz of seedQuizzes) {
+    if (!(await DB.getQuiz(quiz.slug))) {
+      await DB.addQuiz(quiz);
+      console.log(`Seeded quiz: ${quiz.slug}`);
+    }
   }
 }
 
-// Last-resort net: log rather than let an escaped async error kill the service.
-process.on('unhandledRejection', (reason) => {
-  console.log(`Unhandled rejection: ${reason?.message || reason}`);
-});
-process.on('uncaughtException', (err) => {
-  console.log(`Uncaught exception: ${err?.message}`);
-});
+function start() {
+  // Last-resort net: log rather than let an escaped async error kill the service.
+  process.on('unhandledRejection', (reason) => {
+    console.log(`Unhandled rejection: ${reason?.message || reason}`);
+  });
+  process.on('uncaughtException', (err) => {
+    console.log(`Uncaught exception: ${err?.message}`);
+  });
 
-const httpService = app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
-});
+  const httpService = app.listen(port, () => {
+    console.log(`Server running on port ${port}`);
+  });
 
-initWebSocket(httpService);
+  initWebSocket(httpService);
+}
+
+// Only boot when run directly — importing this module (e.g. from tests)
+// should give you the Express app without opening a port or seeding.
+if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+  await seedStarterQuizzes();
+  start();
+}
+
+export { app };
