@@ -38,7 +38,15 @@ One-time setup for hosting Norhog on AWS. After this, every deploy is just
      includes it free at any size. **Tick "Encrypted"** with the default `aws/ebs`
      key: it is free, and it is the one setting on that screen that cannot be changed
      later without snapshotting and rebuilding the volume. Leave File systems as None.
-   - Key pair: create one, download the `.pem`, `chmod 600` it
+   - Key pair: create one and download the `.pem`. On **Windows**, `chmod 600` does
+     nothing useful — OpenSSH checks NTFS ACLs, not POSIX bits, and rejects a key
+     that inherits broad permissions with `UNPROTECTED PRIVATE KEY FILE`. Move it out
+     of `Downloads` (which inherits the whole profile's ACLs) and restrict it:
+     ```powershell
+     icacls "$env:USERPROFILE\keys\kpair1.pem" /inheritance:r
+     icacls "$env:USERPROFILE\keys\kpair1.pem" /grant:r "$($env:USERNAME):(R)"
+     ```
+     This deployment uses `~/keys/kpair1.pem`.
    - Security group inbound rules:
      - SSH (22) — *your IP only*
      - HTTP (80) — anywhere
