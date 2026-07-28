@@ -1,8 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { shuffle } from '../shuffle';
-import { normalize, acceptedAnswers } from '../answerMatch';
+import { normalize } from '../answerMatch';
+import { lookup } from '../answerLock';
+import { usePageTitle } from '../usePageTitle';
 import './quiz.css';
+
+const emptyTimes = { easy: [], medium: [], hard: [] };
 
 export function Quiz() {
   const { slug } = useParams();
@@ -10,6 +14,9 @@ export function Quiz() {
 
   const [quiz, setQuiz] = useState(null);
   const [notFound, setNotFound] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [actionError, setActionError] = useState('');
+  usePageTitle(quiz?.title);
   const [allQuizzes, setAllQuizzes] = useState([]);
   const [recommended, setRecommended] = useState([]);
 
@@ -21,22 +28,43 @@ export function Quiz() {
   const [gameInfo, setGameInfo] = useState(false);
   const [userAnswer, setUserAnswer] = useState('');
   const [score, setScore] = useState(0);
-  const [answeredIndexes, setAnsweredIndexes] = useState([]);
-  const [scores, setScores] = useState([]);
-  const [myBest, setMyBest] = useState(null);
+  // Answers are only known once the server confirms a guess (or reveals the
+  // key at the end), keyed by question index.
+  const [revealed, setRevealed] = useState({});
+  const [missed, setMissed] = useState({});
+  // Stats for all three difficulties are fetched once per quiz, so switching
+  // difficulty is instant (no request on the interaction path).
+  const [timesByDifficulty, setTimesByDifficulty] = useState(emptyTimes);
+  const [bestsByDifficulty, setBestsByDifficulty] = useState(null);
   const [gameSummary, setGameSummary] = useState(null);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  // Server-issued token proving when this run actually started.
+  const [attemptId, setAttemptId] = useState(null);
 
   const userName = localStorage.getItem('userName');
+  const fmtTime = (seconds) => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
   const questions = useMemo(
     () => (quiz ? quiz.difficulties[difficulty] : []),
     [quiz, difficulty]
   );
-  const acceptSets = useMemo(() => questions.map((entry) => acceptedAnswers(entry)), [questions]);
+
+  const scores = timesByDifficulty[difficulty] || [];
+  const myBest = useMemo(() => {
+    if (!bestsByDifficulty) {
+      return null;
+    }
+    const best = bestsByDifficulty[difficulty] || {};
+    if (best.score == null && !(bestsByDifficulty.quizPoints > 0)) {
+      return null;
+    }
+    return { ...best, quizPoints: bestsByDifficulty.quizPoints };
+  }, [bestsByDifficulty, difficulty]);
 
   useEffect(() => {
     const loadQuiz = async () => {
       setNotFound(false);
+      setLoadError(false);
+      setActionError('');
       setQuiz(null);
       setDifficulty('medium');
       setIsTimerRunning(false);
@@ -45,47 +73,51 @@ export function Quiz() {
       setGameInfo(false);
       setUserAnswer('');
       setScore(0);
-      setAnsweredIndexes([]);
+      setRevealed({});
+      setMissed({});
+      setAttemptId(null);
       setGameSummary(null);
       setShowLoginPrompt(false);
 
       try {
         const response = await fetch(`/api/quiz/${slug}`);
         if (response.ok) {
-          const data = await response.json();
-          setQuiz(data);
-          setTimeLeft(data.timeLimit);
+          setQuiz(await response.json());
         } else {
           setNotFound(true);
         }
       } catch (error) {
+        // Otherwise the page would hang on "Loading..." forever.
         console.error('Failed to fetch quiz:', error);
+        setLoadError(true);
       }
     };
 
     loadQuiz();
   }, [slug]);
 
-  const fetchMyBest = () => {
+  const fetchMyBests = () => {
     if (!userName) {
       return;
     }
-    fetch(`/api/scores/best?quiz=${slug}&difficulty=${difficulty}`)
-      .then((response) => (response.ok ? response.json() : {}))
-      .then((data) => setMyBest(data.score != null ? data : null))
+    fetch(`/api/scores/best?quiz=${slug}`)
+      .then((response) => (response.ok ? response.json() : null))
+      .then(setBestsByDifficulty)
       .catch(() => {});
   };
 
-  // The fastest-times board and personal best track the selected difficulty.
+  // Prefetch every difficulty's times board and personal bests up front.
   useEffect(() => {
-    setMyBest(null);
-    fetch(`/api/scores?quiz=${slug}&difficulty=${difficulty}`)
-      .then((response) => (response.ok ? response.json() : []))
-      .then(setScores)
+    setTimesByDifficulty(emptyTimes);
+    setBestsByDifficulty(null);
+
+    fetch(`/api/scores?quiz=${slug}`)
+      .then((response) => (response.ok ? response.json() : emptyTimes))
+      .then(setTimesByDifficulty)
       .catch(() => {});
-    fetchMyBest();
+    fetchMyBests();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug, difficulty]);
+  }, [slug, userName]);
 
   useEffect(() => {
     fetch('/api/quizzes')
@@ -98,93 +130,136 @@ export function Quiz() {
     setRecommended(shuffle(allQuizzes.filter((entry) => entry.slug !== slug)).slice(0, 4));
   }, [allQuizzes, slug]);
 
-  const submitScore = async (newScore) => {
-    if (!userName) {
+  // Ends the run: the server computes the score and elapsed time from the
+  // attempt it has been tracking, and returns the full answer key to reveal.
+  const finishGame = async (runAttemptId, finalScore) => {
+    if (!runAttemptId) {
       setShowLoginPrompt(true);
       return;
     }
 
     try {
-      const response = await fetch('/api/score', {
+      const response = await fetch('/api/attempt/finish', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newScore),
+        body: JSON.stringify({ attemptId: runAttemptId, score: finalScore }),
       });
 
       if (response.ok) {
         const data = await response.json();
-        setScores(data.scores);
+        setMissed(Object.fromEntries(data.answers.map((answer, i) => [i, answer])));
         setGameSummary((prev) => ({ ...prev, ...data.summary }));
-        fetchMyBest();
-      } else if (response.status === 401) {
-        setShowLoginPrompt(true);
+        if (data.scores) {
+          setTimesByDifficulty((prev) => ({ ...prev, [data.summary.difficulty]: data.scores }));
+          fetchMyBests();
+        } else {
+          setShowLoginPrompt(true);
+        }
+      } else {
+        setActionError("Your run couldn't be saved, so the answers stayed hidden.");
       }
     } catch (error) {
-      console.error('Failed to submit score:', error);
+      console.error('Failed to finish attempt:', error);
+      setActionError("Your run couldn't be saved, so the answers stayed hidden.");
     }
+  };
+
+  const resetRun = () => {
+    setScore(0);
+    setRevealed({});
+    setMissed({});
+    setAttemptId(null);
   };
 
   const DifficultyChange = (event) => {
     setDifficulty(event.target.value);
     setShowAnswers(false);
-    setScore(0);
-    setAnsweredIndexes([]);
     setGameSummary(null);
+    resetRun();
   };
 
-  const PlayClick = () => {
-    if (!isTimerRunning && quiz) {
-      setIsTimerRunning(true);
-      setTimeLeft(quiz.timeLimit);
-      setShowOptions(false);
-      setShowAnswers(false);
-      setGameInfo(true);
-      setScore(0);
-      setAnsweredIndexes([]);
-      setGameSummary(null);
-      setShowLoginPrompt(false);
+  const PlayClick = async () => {
+    if (isTimerRunning || !quiz) {
+      return;
     }
+
+    // Guests get an attempt too — it just isn't scored at the end.
+    let runAttemptId = null;
+    try {
+      const response = await fetch('/api/attempt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quiz: slug, difficulty }),
+      });
+      if (response.ok) {
+        runAttemptId = (await response.json()).attemptId;
+      }
+    } catch (error) {
+      console.error('Failed to start attempt:', error);
+    }
+    // Never leave Play looking like a dead button.
+    if (!runAttemptId) {
+      setActionError("Couldn't start the quiz. Check your connection and try again.");
+      return;
+    }
+
+    setActionError('');
+    resetRun();
+    setAttemptId(runAttemptId);
+    setIsTimerRunning(true);
+    setTimeLeft(quiz.timeLimits[difficulty]);
+    setShowOptions(false);
+    setShowAnswers(false);
+    setGameInfo(true);
+    setGameSummary(null);
+    setShowLoginPrompt(false);
   };
 
-  const endGame = (finalScore, finalTimeLeft) => {
+  const endGame = (finalTimeLeft, runAttemptId, finalScore) => {
     setIsTimerRunning(false);
     setShowAnswers(true);
     setShowOptions(true);
     setGameInfo(false);
-    // Local summary first; the server response adds points earned/gained.
+    // Local placeholder; the server response fills in the authoritative values.
     setGameSummary({
       score: finalScore,
       total: questions.length,
-      timeSpent: quiz.timeLimit - finalTimeLeft,
+      timeSpent: quiz.timeLimits[difficulty] - finalTimeLeft,
+      timeLimit: quiz.timeLimits[difficulty],
     });
-    submitScore({ quiz: slug, score: finalScore, difficulty, timeLeft: finalTimeLeft });
+    finishGame(runAttemptId, finalScore);
   };
 
   const EndClick = () => {
-    endGame(score, timeLeft);
+    endGame(timeLeft, attemptId, score);
   };
 
-  // Answers auto-submit: a correct guess is counted the moment it's typed.
-  // Guesses are normalized, and each question accepts its full answer plus
-  // any shortcuts (last names, roman/arabic numerals, etc.).
-  const AnswerChange = (value) => {
+  // Matching happens locally against the locked answers, so typing costs no
+  // network requests. A guess only decrypts the answer it actually matches.
+  const AnswerChange = async (value) => {
     setUserAnswer(value);
     const guess = normalize(value);
-    if (!guess) return;
+    if (!guess || !quiz) {
+      return;
+    }
 
-    const index = acceptSets.findIndex(
-      (accepted, i) => accepted.has(guess) && !answeredIndexes.includes(i)
+    const { id, decrypt } = await lookup(quiz.salt, guess);
+    const index = questions.findIndex(
+      (entry, i) => revealed[i] === undefined && entry.locks.some((lock) => lock.id === id)
     );
+    if (index === -1) {
+      return;
+    }
 
-    if (index !== -1) {
-      const newScore = score + 1;
-      setScore(newScore);
-      setAnsweredIndexes((prev) => [...prev, index]);
-      setUserAnswer('');
+    const lock = questions[index].locks.find((entry) => entry.id === id);
+    const answer = await decrypt(lock.c);
+    const newScore = score + 1;
+    setRevealed((prev) => ({ ...prev, [index]: answer }));
+    setScore(newScore);
+    setUserAnswer((current) => (current === value ? '' : current));
 
-      if (newScore === questions.length) {
-        endGame(newScore, timeLeft);
-      }
+    if (newScore === questions.length) {
+      endGame(timeLeft, attemptId, newScore);
     }
   };
 
@@ -200,18 +275,32 @@ export function Quiz() {
 
   useEffect(() => {
     if (isTimerRunning && timeLeft === 0) {
-      endGame(score, 0);
+      endGame(0, attemptId, score);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeLeft]);
 
-  // Guessed answers flash gold; unguessed ones flash brick red when revealed.
-  const answerCell = (entry, index) => {
-    if (answeredIndexes.includes(index)) {
-      return <td className="answer revealed-correct">{entry.answer}</td>;
+  // Correct guesses flash green; answers missed at the end flash brick red.
+  // The check/cross marks carry the same meaning as the colour, so the result
+  // is readable without relying on colour vision.
+  const answerCell = (index) => {
+    if (revealed[index] !== undefined) {
+      return (
+        <td className="answer revealed-correct">
+          <span className="answer-mark" aria-hidden="true">&#10003;</span>
+          <span className="visually-hidden">Correct: </span>
+          {revealed[index]}
+        </td>
+      );
     }
-    if (showAnswers) {
-      return <td className="answer revealed-missed">{entry.answer}</td>;
+    if (showAnswers && missed[index] !== undefined) {
+      return (
+        <td className="answer revealed-missed">
+          <span className="answer-mark" aria-hidden="true">&#10007;</span>
+          <span className="visually-hidden">Missed: </span>
+          {missed[index]}
+        </td>
+      );
     }
     return <td className="answer"></td>;
   };
@@ -219,7 +308,19 @@ export function Quiz() {
   if (notFound) {
     return (
       <main className="container text-center">
-        <p>Quiz not found — <Link to="/">browse the available quizzes</Link>.</p>
+        <p>Quiz not found — <Link to="/quizzes">browse the available quizzes</Link>.</p>
+      </main>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <main className="container text-center">
+        <h2>Couldn&apos;t load this quiz</h2>
+        <p>Something went wrong reaching the server.</p>
+        <button className="btn btn-primary" onClick={() => window.location.reload()}>
+          Try again
+        </button>
       </main>
     );
   }
@@ -243,7 +344,7 @@ export function Quiz() {
             <ul className="top-scores">
               {scores.map((entry, index) => (
                 <li key={index}>
-                  <strong>{entry.user}</strong>: {entry.timeSpent}s
+                  <strong>{entry.name || 'Unknown'}</strong>: {entry.timeSpent}s
                 </li>
               ))}
             </ul>
@@ -257,8 +358,12 @@ export function Quiz() {
             <>
               {myBest && (
                 <p className="my-best">
-                  Your best <span className="difficulty-tag">({difficulty})</span>:{' '}
-                  <strong>{myBest.score}/{myBest.total}</strong> &middot; {myBest.points} points
+                  Best score <span className="difficulty-tag">({difficulty})</span>:{' '}
+                  <strong>{myBest.score != null ? `${myBest.score}/${myBest.total}` : '—'}</strong>
+                  {' '}&middot; Best time <span className="difficulty-tag">({difficulty})</span>:{' '}
+                  <strong>{myBest.bestTime != null ? fmtTime(myBest.bestTime) : '—'}</strong>
+                  {' '}&middot; Toward your total:{' '}
+                  <strong>{myBest.quizPoints} pts</strong>
                 </p>
               )}
               <fieldset className="difficulty">
@@ -284,11 +389,14 @@ export function Quiz() {
           )}
           {gameInfo && (
             <div className="game-bar">
-              <input type="text" id="timer" value={`${Math.floor(timeLeft / 60)}:${String(timeLeft % 60).padStart(2, '0')}`} readOnly />
-              <input type="text" id="score" value={`${score}/${questions.length}`} readOnly />
+              <output id="timer" aria-label="Time remaining">{fmtTime(timeLeft)}</output>
+              <output id="score" aria-label="Score" aria-live="polite">
+                {score}/{questions.length}
+              </output>
               <input
                 type="text"
                 id="answerbox"
+                aria-label="Type your answer"
                 placeholder="Type answers here..."
                 value={userAnswer}
                 onChange={(e) => AnswerChange(e.target.value)}
@@ -298,16 +406,24 @@ export function Quiz() {
             </div>
           )}
 
+          {actionError && <p className="quiz-error" role="alert">{actionError}</p>}
+
           {gameSummary && (
-            <div className="game-summary">
+            <div className="game-summary" role="status" aria-live="polite">
               <h5>{gameSummary.score === gameSummary.total ? 'Perfect run!' : 'Game over'}</h5>
               <ul>
                 <li>
                   Score: <strong>{gameSummary.score}/{gameSummary.total}</strong>
                 </li>
                 <li>
-                  Time: <strong>{gameSummary.timeSpent}s</strong>
+                  Time: <strong>{fmtTime(gameSummary.timeSpent)} / {fmtTime(gameSummary.timeLimit)}</strong>
                 </li>
+                {gameSummary.bestTime !== undefined && (
+                  <li>
+                    Best time <span className="difficulty-tag">({difficulty})</span>:{' '}
+                    <strong>{gameSummary.bestTime != null ? fmtTime(gameSummary.bestTime) : '—'}</strong>
+                  </li>
+                )}
                 {gameSummary.points != null && (
                   <li>
                     This run: <strong>{gameSummary.points} point{gameSummary.points === 1 ? '' : 's'}</strong>
@@ -336,7 +452,7 @@ export function Quiz() {
               {questions.map((entry, index) => (
                 <tr key={index}>
                   <td className="question">{entry.question}</td>
-                  {answerCell(entry, index)}
+                  {answerCell(index)}
                 </tr>
               ))}
             </tbody>

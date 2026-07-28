@@ -31,7 +31,8 @@ export function imagesConfigured() {
 }
 
 export function isValidImageType(contentType) {
-  return contentType in extensions;
+  // hasOwn, not `in`, so prototype keys like "constructor" aren't accepted.
+  return typeof contentType === 'string' && Object.hasOwn(extensions, contentType);
 }
 
 export async function createUploadUrl(contentType) {
@@ -45,10 +46,13 @@ export async function createUploadUrl(contentType) {
 // Best-effort removal of a quiz image that lives in our bucket.
 export async function deleteImage(imageUrl) {
   if (!s3 || !imageUrl) return;
-  const prefix = `https://${bucket}.s3.${region}.amazonaws.com/`;
-  if (!imageUrl.startsWith(prefix)) return;
+  // Only ever delete keys this service uploaded.
+  const prefix = `https://${bucket}.s3.${region}.amazonaws.com/images/`;
+  if (typeof imageUrl !== 'string' || !imageUrl.startsWith(prefix)) return;
+  const key = `images/${imageUrl.slice(prefix.length)}`;
+  if (key.includes('..')) return;
   try {
-    await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: imageUrl.slice(prefix.length) }));
+    await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
   } catch (err) {
     console.log(`Failed to delete image ${imageUrl}: ${err.message}`);
   }

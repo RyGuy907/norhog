@@ -7,6 +7,13 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 export default [
   { ignores: ['dist', 'service/public'] },
   {
+    // Tests run under Vitest in Node, so they get both browser and node globals.
+    files: ['**/*.test.{js,jsx}', 'src/test/**/*.js'],
+    languageOptions: {
+      globals: { ...globals.browser, ...globals.node, ...globals.vitest },
+    },
+  },
+  {
     files: ['service/**/*.js'],
     languageOptions: {
       globals: globals.node,

@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom';
+import { usePageTitle } from '../usePageTitle';
 import './about.css';
 
 export function About() {
+  usePageTitle('About');
   return (
     <main className="container about-page">
       <h2>About Norhog</h2>

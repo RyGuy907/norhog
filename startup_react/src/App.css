@@ -37,12 +37,33 @@ h1, h2, h3, h4, .brand h1 {
   font-family: Georgia, 'Times New Roman', serif;
 }
 
-main {
+/* main.container, not main: Bootstrap's .container would otherwise win on
+   specificity and these would silently do nothing. */
+main,
+main.container {
   flex: 1;
-  padding: 28px 20px 40px;
+  padding: 28px 16px 40px;
   width: 100%;
-  max-width: 1100px;
+  max-width: 1280px;
   margin: 0 auto;
+}
+
+/* Visible only to screen readers. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
 }
 
 main h2 {
@@ -62,7 +83,7 @@ main h2 {
 }
 
 .header-bar {
-  max-width: 1100px;
+  max-width: 1280px;
   margin: 0 auto;
   padding: 14px 20px;
   display: flex;
@@ -128,7 +149,7 @@ main h2 {
 }
 
 .footer-content {
-  max-width: 1100px;
+  max-width: 1280px;
   margin: 0 auto;
   padding: 16px 20px;
   display: flex;
@@ -169,11 +190,25 @@ button, .btn {
 .btn-primary {
   background-color: var(--navy);
   border-color: var(--navy);
+  color: #fff;
 }
 
 .btn-primary:hover, .btn-primary:focus {
   background-color: var(--navy-light);
   border-color: var(--navy-light);
+}
+
+.btn-secondary {
+  background-color: var(--gold);
+  border-color: var(--gold);
+  color: var(--navy);
+  font-weight: 600;
+}
+
+.btn-secondary:hover, .btn-secondary:focus {
+  background-color: var(--gold-dark);
+  border-color: var(--gold-dark);
+  color: #fff;
 }
 
 /* ---- Shared components ------------------------------------------------- */
@@ -263,6 +298,33 @@ button, .btn {
 
 .styled-table tbody tr:hover {
   background-color: rgba(201, 162, 39, 0.08);
+}
+
+/* Scrollable table wrapper: shows ~8 rows, header stays pinned */
+.scroll-table {
+  max-height: 416px;
+  overflow-y: auto;
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  margin-bottom: 22px;
+}
+
+.scroll-table .styled-table {
+  margin-bottom: 0;
+  box-shadow: none;
+  /* border-collapse and the base overflow:hidden both break
+     position: sticky on the header row */
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: visible;
+}
+
+.scroll-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  border-bottom: none;
+  box-shadow: 0 2px 0 var(--gold);
 }
 
 .suggest-box {

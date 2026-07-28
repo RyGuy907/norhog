@@ -36,7 +36,7 @@ export const emptyQuizForm = () => ({
   image: '',
   description: '',
   instructions: '',
-  timeLimit: 60,
+  timeLimits: { easy: 120, medium: 180, hard: 240 },
   difficulties: {
     easy: [emptyEntry()],
     medium: [emptyEntry()],
@@ -49,6 +49,7 @@ export const emptyQuizForm = () => ({
 export function QuizForm({ initial, slugLocked, allowUpload, submitLabel, errorMsg, onSave, onCancel }) {
   const [form, setForm] = useState(() => ({
     ...initial,
+    timeLimits: { easy: 120, medium: 180, hard: 240, ...initial.timeLimits },
     difficulties: toFormDifficulties(initial.difficulties),
   }));
   const [uploading, setUploading] = useState(false);
@@ -160,14 +161,24 @@ export function QuizForm({ initial, slugLocked, allowUpload, submitLabel, errorM
         />
       </div>
       <div className="mb-3">
-        <label className="form-label" htmlFor="quiz-time">Time limit (seconds, 10&ndash;600)</label>
-        <input
-          id="quiz-time"
-          type="number"
-          className="form-control time-limit"
-          value={form.timeLimit}
-          onChange={(e) => setField('timeLimit', e.target.value)}
-        />
+        <span className="form-label d-block">Time limits in seconds (easy / medium / hard)</span>
+        <div className="time-limit-row">
+          {['easy', 'medium', 'hard'].map((level) => (
+            <input
+              key={level}
+              type="number"
+              className="form-control time-limit"
+              aria-label={`${level} time limit`}
+              value={form.timeLimits[level]}
+              onChange={(e) =>
+                setForm((prev) => ({
+                  ...prev,
+                  timeLimits: { ...prev.timeLimits, [level]: e.target.value },
+                }))
+              }
+            />
+          ))}
+        </div>
       </div>
       <div className="mb-3">
         <label className="form-label" htmlFor="quiz-image-input">
@@ -239,7 +250,11 @@ export function QuizForm({ initial, slugLocked, allowUpload, submitLabel, errorM
           onClick={() =>
             onSave({
               ...form,
-              timeLimit: parseInt(form.timeLimit, 10),
+              timeLimits: {
+                easy: parseInt(form.timeLimits.easy, 10),
+                medium: parseInt(form.timeLimits.medium, 10),
+                hard: parseInt(form.timeLimits.hard, 10),
+              },
               difficulties: toPayloadDifficulties(form.difficulties),
             })
           }

@@ -9,6 +9,7 @@ import { Admin } from './admin/admin';
 import { Cat } from './cat/cat';
 import { About } from './about/about';
 import { Suggest } from './suggest/suggest';
+import { ErrorBoundary } from './errorBoundary';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import './App.css';
 
@@ -57,6 +58,7 @@ function App() {
           </div>
         </header>
 
+        <ErrorBoundary>
         <Routes>
           <Route path="/" element={<Main />} />
           <Route path="/quizzes" element={<Gallery />} />
@@ -70,6 +72,7 @@ function App() {
           <Route path="/suggest" element={<Suggest />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
+        </ErrorBoundary>
 
         <footer className="footer">
           <div className="footer-content">
@@ -86,7 +89,13 @@ function App() {
 }
 
 function NotFound() {
-  return <main className="container text-center">404: Return to sender. Address unknown.</main>;
+  return (
+    <main className="container text-center">
+      <h2>404 &mdash; Return to sender</h2>
+      <p>Address unknown. That page isn&apos;t part of the historical record.</p>
+      <NavLink className="btn btn-primary" to="/">Back to Norhog</NavLink>
+    </main>
+  );
 }
 
 export default App;

@@ -11,7 +11,7 @@ export const seedQuizzes = [
       'https://cdn.britannica.com/98/90498-050-5527D0C1/prison-event-Bastille-French-Revolution-engraving-July-14-1789.jpg?w=300',
     description: 'Can you answer these questions about the French Revolution?',
     instructions: 'Full answers or shortcuts work (a last name is enough) — correct answers are revealed as you type!',
-    timeLimit: 60,
+    timeLimits: { easy: 120, medium: 180, hard: 240 },
     difficulties: {
       easy: [
         { question: 'When did the French Revolution begin?', answer: '1789', accept: [] },
@@ -57,7 +57,7 @@ export const seedQuizzes = [
     image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Jacques-Louis%20David%20-%20The%20Emperor%20Napoleon%20in%20His%20Study%20at%20the%20Tuileries%20-%20Google%20Art%20Project.jpg?width=400',
     description: 'From Corsica to Waterloo — how well do you know the Emperor of the French?',
     instructions: 'Full answers or shortcuts work (a last name is enough) — correct answers are revealed as you type!',
-    timeLimit: 60,
+    timeLimits: { easy: 120, medium: 180, hard: 240 },
     difficulties: {
       easy: [
         { question: 'On what island was Napoleon born?', answer: 'Corsica', accept: [] },
@@ -103,7 +103,7 @@ export const seedQuizzes = [
     image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Benjamin%20West%20005.jpg?width=400',
     description: 'The first truly global war — fought from Prussia to Quebec to Bengal.',
     instructions: 'Full answers or shortcuts work (a last name is enough) — correct answers are revealed as you type!',
-    timeLimit: 60,
+    timeLimits: { easy: 120, medium: 180, hard: 240 },
     difficulties: {
       easy: [
         { question: 'What year did the war begin in Europe?', answer: '1756', accept: [] },
@@ -146,10 +146,10 @@ export const seedQuizzes = [
   {
     slug: 'monarchs-france',
     title: 'Monarchs of France',
-    image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Louis%20XIV%20of%20France.jpg?width=400',
+    image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Fran%C3%A7ois_Ier_Louvre.jpg?width=500',
     description: 'From Clovis to the Citizen King — a thousand years of French crowns.',
     instructions: 'Names like "Louis XIV" (or "louis 14") work — correct answers are revealed as you type!',
-    timeLimit: 60,
+    timeLimits: { easy: 120, medium: 180, hard: 240 },
     difficulties: {
       easy: [
         { question: 'Which "Sun King" built Versailles?', answer: 'Louis XIV', accept: [] },
@@ -195,7 +195,7 @@ export const seedQuizzes = [
     image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Surrender%20of%20Lord%20Cornwallis.jpg?width=400',
     description: 'Thirteen colonies against an empire — test your Revolutionary knowledge.',
     instructions: 'Full answers or shortcuts work (a last name is enough) — correct answers are revealed as you type!',
-    timeLimit: 60,
+    timeLimits: { easy: 120, medium: 180, hard: 240 },
     difficulties: {
       easy: [
         { question: 'What year was the Declaration of Independence signed?', answer: '1776', accept: [] },
@@ -238,10 +238,10 @@ export const seedQuizzes = [
   {
     slug: 'punic-wars',
     title: 'The Punic Wars',
-    image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Heinrich%20Leutemann%20-%20Hannibals%20%C3%9Cbergang%20%C3%BCber%20die%20Alpen.jpg?width=400',
+    image: 'https://commons.wikimedia.org/wiki/Special:FilePath/The_Death_of_Paulus_Aemilius_at_the_Battle_of_Cannae_%28Yale_University_Art_Gallery_scan%29.jpg?width=500',
     description: 'Rome versus Carthage — three wars for mastery of the Mediterranean.',
     instructions: 'Full answers or shortcuts work — correct answers are revealed as you type!',
-    timeLimit: 60,
+    timeLimits: { easy: 120, medium: 180, hard: 240 },
     difficulties: {
       easy: [
         { question: 'Which city fought Rome in the Punic Wars?', answer: 'Carthage', accept: [] },
@@ -287,7 +287,7 @@ export const seedQuizzes = [
     image: 'https://commons.wikimedia.org/wiki/Special:FilePath/The%20Bosses%20of%20the%20Senate%20by%20Joseph%20Keppler.jpg?width=400',
     description: 'Robber barons, railroads, and reform — America’s age of gold and grime.',
     instructions: 'Full answers or shortcuts work (a last name is enough) — correct answers are revealed as you type!',
-    timeLimit: 60,
+    timeLimits: { easy: 120, medium: 180, hard: 240 },
     difficulties: {
       easy: [
         { question: 'Which author coined the term "Gilded Age"?', answer: 'Mark Twain', accept: ['Twain'] },
@@ -330,10 +330,10 @@ export const seedQuizzes = [
   {
     slug: 'tsarist-russia',
     title: 'Tsarist Russia',
-    image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Nicholas%20II%20of%20Russia%20painted%20by%20Earnest%20Lipgart.jpg?width=400',
+    image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Inconnu_d%27apr%C3%A8s_J.-M._Nattier%2C_Portrait_de_Pierre_Ier_%28mus%C3%A9e_de_l%E2%80%99Ermitage%29.jpg?width=500',
     description: 'Three centuries of Romanovs — from Peter’s window on the West to 1917.',
     instructions: 'Full answers or shortcuts work ("Nicholas II" or "nicholas 2") — correct answers are revealed as you type!',
-    timeLimit: 60,
+    timeLimits: { easy: 120, medium: 180, hard: 240 },
     difficulties: {
       easy: [
         { question: 'What was the Russian emperor called?', answer: 'The Tsar', accept: ['Czar'] },
@@ -379,7 +379,7 @@ export const seedQuizzes = [
     image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Cheshire%20Regiment%20trench%20Somme%201916.jpg?width=400',
     description: 'The Great War — trenches, empires, and a world remade, 1914-1918.',
     instructions: 'Full answers or shortcuts work (a last name is enough) — correct answers are revealed as you type!',
-    timeLimit: 60,
+    timeLimits: { easy: 120, medium: 180, hard: 240 },
     difficulties: {
       easy: [
         { question: 'In what year did World War I begin?', answer: '1914', accept: [] },
@@ -425,7 +425,7 @@ export const seedQuizzes = [
     image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Into%20the%20Jaws%20of%20Death%2023-0455M%20edit.jpg?width=400',
     description: 'The deadliest conflict in history — from blitzkrieg to the atomic age.',
     instructions: 'Full answers or shortcuts work (a last name is enough) — correct answers are revealed as you type!',
-    timeLimit: 60,
+    timeLimits: { easy: 120, medium: 180, hard: 240 },
     difficulties: {
       easy: [
         { question: 'What year did World War II begin in Europe?', answer: '1939', accept: [] },
@@ -471,7 +471,7 @@ export const seedQuizzes = [
     image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Colosseum%20in%20Rome%2C%20Italy%20-%20April%202007.jpg?width=400',
     description: 'From Augustus to the fall of the West — the empire that shaped Europe.',
     instructions: 'Full answers or shortcuts work — correct answers are revealed as you type!',
-    timeLimit: 60,
+    timeLimits: { easy: 120, medium: 180, hard: 240 },
     difficulties: {
       easy: [
         { question: 'Who was the first Roman emperor?', answer: 'Augustus', accept: ['Octavian'] },
@@ -517,7 +517,7 @@ export const seedQuizzes = [
     image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Kheops-Pyramid.jpg?width=400',
     description: 'Pharaohs, pyramids, and three thousand years along the Nile.',
     instructions: 'Full answers or shortcuts work — correct answers are revealed as you type!',
-    timeLimit: 60,
+    timeLimits: { easy: 120, medium: 180, hard: 240 },
     difficulties: {
       easy: [
         { question: "What river was Egypt's lifeline?", answer: 'The Nile', accept: [] },
@@ -563,7 +563,7 @@ export const seedQuizzes = [
     image: 'https://commons.wikimedia.org/wiki/Special:FilePath/The%20Parthenon%20in%20Athens.jpg?width=400',
     description: 'Democracy, philosophy, and phalanxes — the world of the city-states.',
     instructions: 'Full answers or shortcuts work — correct answers are revealed as you type!',
-    timeLimit: 60,
+    timeLimits: { easy: 120, medium: 180, hard: 240 },
     difficulties: {
       easy: [
         { question: 'Which city-state invented democracy?', answer: 'Athens', accept: [] },
@@ -609,7 +609,7 @@ export const seedQuizzes = [
     image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Battle%20of%20Gettysburg%2C%20by%20Currier%20and%20Ives.png?width=400',
     description: 'Union against Confederacy — the war that decided the fate of a nation.',
     instructions: 'Full answers or shortcuts work (a last name is enough) — correct answers are revealed as you type!',
-    timeLimit: 60,
+    timeLimits: { easy: 120, medium: 180, hard: 240 },
     difficulties: {
       easy: [
         { question: 'What year did the Civil War begin?', answer: '1861', accept: [] },
@@ -652,10 +652,10 @@ export const seedQuizzes = [
   {
     slug: 'middle-ages',
     title: 'The Middle Ages',
-    image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Meister%20der%20Manessischen%20Liederhandschrift%20001.jpg?width=400',
+    image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Schlacht_von_Azincourt.jpg?width=500',
     description: 'Knights, castles, and cathedrals — a thousand years of medieval Europe.',
     instructions: 'Full answers or shortcuts work — correct answers are revealed as you type!',
-    timeLimit: 60,
+    timeLimits: { easy: 120, medium: 180, hard: 240 },
     difficulties: {
       easy: [
         { question: 'In what year did William conquer England?', answer: '1066', accept: [] },
@@ -701,7 +701,7 @@ export const seedQuizzes = [
     image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Mona%20Lisa%2C%20by%20Leonardo%20da%20Vinci%2C%20from%20C2RMF%20retouched.jpg?width=400',
     description: 'The rebirth of art and learning that ended the medieval world.',
     instructions: 'Full answers or shortcuts work (a last name is enough) — correct answers are revealed as you type!',
-    timeLimit: 60,
+    timeLimits: { easy: 120, medium: 180, hard: 240 },
     difficulties: {
       easy: [
         { question: 'In which country did the Renaissance begin?', answer: 'Italy', accept: [] },
@@ -747,7 +747,7 @@ export const seedQuizzes = [
     image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Counquest%20of%20Jeusalem%20(1099).jpg?width=400',
     description: 'Two centuries of holy war for the Holy Land.',
     instructions: 'Full answers or shortcuts work — correct answers are revealed as you type!',
-    timeLimit: 60,
+    timeLimits: { easy: 120, medium: 180, hard: 240 },
     difficulties: {
       easy: [
         { question: 'Which holy city did Crusaders aim to capture?', answer: 'Jerusalem', accept: [] },
@@ -793,7 +793,7 @@ export const seedQuizzes = [
     image: 'https://commons.wikimedia.org/wiki/Special:FilePath/US%20Army%20tanks%20face%20off%20against%20Soviet%20tanks%2C%20Berlin%201961.jpg?width=400',
     description: 'Four decades on the brink — superpowers, spies, and the bomb.',
     instructions: 'Full answers or shortcuts work (a last name is enough) — correct answers are revealed as you type!',
-    timeLimit: 60,
+    timeLimits: { easy: 120, medium: 180, hard: 240 },
     difficulties: {
       easy: [
         { question: 'Which superpower opposed the USA?', answer: 'The Soviet Union', accept: ['USSR', 'Soviets', 'Russia'] },
@@ -839,7 +839,7 @@ export const seedQuizzes = [
     image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Landing%20of%20Columbus%20(2).jpg?width=400',
     description: 'Caravels, conquistadors, and the mapping of the world.',
     instructions: 'Full answers or shortcuts work (a last name is enough) — correct answers are revealed as you type!',
-    timeLimit: 60,
+    timeLimits: { easy: 120, medium: 180, hard: 240 },
     difficulties: {
       easy: [
         { question: 'Who sailed to the Americas in 1492?', answer: 'Christopher Columbus', accept: ['Columbus'] },
@@ -885,7 +885,7 @@ export const seedQuizzes = [
     image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Workshop%20of%20Hans%20Holbein%20the%20Younger%20-%20Portrait%20of%20Henry%20VIII%20-%20Google%20Art%20Project.jpg?width=400',
     description: 'Six wives, two queens, and an armada — the dynasty that remade England.',
     instructions: 'Full answers or shortcuts work — correct answers are revealed as you type!',
-    timeLimit: 60,
+    timeLimits: { easy: 120, medium: 180, hard: 240 },
     difficulties: {
       easy: [
         { question: 'Which king famously had six wives?', answer: 'Henry VIII', accept: [] },
@@ -928,10 +928,10 @@ export const seedQuizzes = [
   {
     slug: 'mongol-empire',
     title: 'The Mongol Empire',
-    image: 'https://commons.wikimedia.org/wiki/Special:FilePath/YuanEmperorAlbumGenghisPortrait.jpg?width=400',
+    image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Genghis_Khan_Equestrian_Statue%2C_photo_by_Vaiz_Ha.jpg?width=500',
     description: 'The largest land empire in history, built from the saddle.',
     instructions: 'Full answers or shortcuts work — correct answers are revealed as you type!',
-    timeLimit: 60,
+    timeLimits: { easy: 120, medium: 180, hard: 240 },
     difficulties: {
       easy: [
         { question: 'Who founded the Mongol Empire?', answer: 'Genghis Khan', accept: ['Genghis', 'Chinggis Khan'] },
@@ -977,7 +977,7 @@ export const seedQuizzes = [
     image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Powerloom%20weaving%20in%201835.jpg?width=400',
     description: 'Steam, steel, and smoke — the machines that made the modern world.',
     instructions: 'Full answers or shortcuts work (a last name is enough) — correct answers are revealed as you type!',
-    timeLimit: 60,
+    timeLimits: { easy: 120, medium: 180, hard: 240 },
     difficulties: {
       easy: [
         { question: 'In which country did the Industrial Revolution begin?', answer: 'Britain', accept: ['England', 'Great Britain'] },
@@ -1020,10 +1020,10 @@ export const seedQuizzes = [
   {
     slug: 'vikings',
     title: 'The Vikings',
-    image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Gokstadskipet1.jpg?width=400',
+    image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Osebergskipet_2016.jpg?width=500',
     description: 'Raiders, traders, and explorers of the northern seas.',
     instructions: 'Full answers or shortcuts work — correct answers are revealed as you type!',
-    timeLimit: 60,
+    timeLimits: { easy: 120, medium: 180, hard: 240 },
     difficulties: {
       easy: [
         { question: 'From which region did the Vikings come?', answer: 'Scandinavia', accept: ['Norway', 'Denmark', 'Sweden'] },
@@ -1069,7 +1069,7 @@ export const seedQuizzes = [
     image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Hagia%20Sophia%20Mars%202013.jpg?width=400',
     description: 'Rome\'s eastern half — a thousand extra years of empire.',
     instructions: 'Full answers or shortcuts work — correct answers are revealed as you type!',
-    timeLimit: 60,
+    timeLimits: { easy: 120, medium: 180, hard: 240 },
     difficulties: {
       easy: [
         { question: 'What city was the Byzantine capital?', answer: 'Constantinople', accept: [] },
@@ -1115,7 +1115,7 @@ export const seedQuizzes = [
     image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Aldrin%20Apollo%2011%20original.jpg?width=400',
     description: 'From Sputnik to the Moon — the Cold War fought with rockets.',
     instructions: 'Full answers or shortcuts work (a last name is enough) — correct answers are revealed as you type!',
-    timeLimit: 60,
+    timeLimits: { easy: 120, medium: 180, hard: 240 },
     difficulties: {
       easy: [
         { question: 'Which country launched the first satellite?', answer: 'The Soviet Union', accept: ['USSR', 'Russia'] },
@@ -1158,10 +1158,10 @@ export const seedQuizzes = [
   {
     slug: 'ottoman-empire',
     title: 'The Ottoman Empire',
-    image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Gentile%20Bellini%20003.jpg?width=400',
+    image: 'https://commons.wikimedia.org/wiki/Special:FilePath/EmperorSuleiman.jpg?width=500',
     description: 'Six centuries of sultans, from a frontier band to a world empire.',
     instructions: 'Full answers or shortcuts work — correct answers are revealed as you type!',
-    timeLimit: 60,
+    timeLimits: { easy: 120, medium: 180, hard: 240 },
     difficulties: {
       easy: [
         { question: 'Which city did the Ottomans conquer in 1453?', answer: 'Constantinople', accept: [] },

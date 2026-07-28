@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { shuffle } from '../shuffle';
+import { usePageTitle } from '../usePageTitle';
 import './profile.css';
 
 const AuthState = {
@@ -9,16 +10,22 @@ const AuthState = {
 };
 
 export function Profile() {
+  usePageTitle('Profile');
   const navigate = useNavigate();
   const [userName, setUserName] = useState(localStorage.getItem('userName') || '');
   const [authState, setAuthState] = useState(userName ? AuthState.Authenticated : AuthState.Unauthenticated);
+  const [authTab, setAuthTab] = useState('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [displayName, setDisplayName] = useState('');
   const [creationDate, setCreationDate] = useState('');
   const [totalPoints, setTotalPoints] = useState(0);
   const [myScores, setMyScores] = useState([]);
   const [errorMsg, setErrorMsg] = useState('');
   const [quizzes, setQuizzes] = useState([]);
+  const [dangerOpen, setDangerOpen] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteText, setDeleteText] = useState('');
 
   const clearUserData = () => {
     localStorage.removeItem('userName');
@@ -27,11 +34,42 @@ export function Profile() {
     setTotalPoints(0);
     setMyScores([]);
     setCreationDate('');
+    setDangerOpen(false);
+    setShowDeleteConfirm(false);
+    setDeleteText('');
+  };
+
+  const toggleDangerZone = () => {
+    setDangerOpen((open) => !open);
+    setShowDeleteConfirm(false);
+    setDeleteText('');
+  };
+
+  const deleteAccount = async () => {
+    try {
+      const response = await fetch('/api/user', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirm: true }),
+      });
+      if (response.ok) {
+        clearUserData();
+        window.dispatchEvent(new Event('authChanged'));
+        navigate('/');
+      } else {
+        const data = await response.json().catch(() => null);
+        setErrorMsg(data?.msg || 'Failed to delete account');
+      }
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      setErrorMsg('Failed to delete account');
+    }
   };
 
   const setLoggedIn = (data) => {
-    localStorage.setItem('userName', data.email);
-    setUserName(data.email);
+    const shownName = data.displayName || data.email;
+    localStorage.setItem('userName', shownName);
+    setUserName(shownName);
     setCreationDate(data.creationDate ? new Date(data.creationDate).toLocaleDateString() : 'N/A');
     setAuthState(AuthState.Authenticated);
     setErrorMsg('');
@@ -76,7 +114,7 @@ export function Profile() {
       const response = await fetch('/api/auth/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, displayName }),
       });
 
       if (response.ok) {
@@ -138,7 +176,22 @@ export function Profile() {
         <div className="col-md-8">
           {authState === AuthState.Unauthenticated ? (
             <div className="profile-card">
-              <h2>Login or Create an Account</h2>
+              <div className="auth-tabs">
+                <button
+                  type="button"
+                  className={`auth-tab${authTab === 'login' ? ' active' : ''}`}
+                  onClick={() => { setAuthTab('login'); setErrorMsg(''); }}
+                >
+                  Login
+                </button>
+                <button
+                  type="button"
+                  className={`auth-tab${authTab === 'create' ? ' active' : ''}`}
+                  onClick={() => { setAuthTab('create'); setErrorMsg(''); }}
+                >
+                  Create Account
+                </button>
+              </div>
               {errorMsg && <div className="alert alert-danger">{errorMsg}</div>}
               <div className="mb-3">
                 <label htmlFor="email" className="label">E-mail:</label>
@@ -164,20 +217,37 @@ export function Profile() {
                   onChange={(e) => setPassword(e.target.value)}
                 />
               </div>
-              <button
-                type="button"
-                className="btn btn-primary me-2"
-                onClick={() => login(email, password)}
-              >
-                Login
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => createAccount(email, password)}
-              >
-                Create Account
-              </button>
+              {authTab === 'create' && (
+                <div className="mb-3">
+                  <label htmlFor="displayName" className="label">Display name <span className="label-hint">(shown publicly)</span>:</label>
+                  <input
+                    type="text"
+                    id="displayName"
+                    name="displayName"
+                    placeholder="3-20 characters, must be unique"
+                    className="form-control"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                  />
+                </div>
+              )}
+              {authTab === 'login' ? (
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => login(email, password)}
+                >
+                  Login
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => createAccount(email, password)}
+                >
+                  Create Account
+                </button>
+              )}
             </div>
           ) : (
             <>
@@ -203,40 +273,90 @@ export function Profile() {
               {myScores.length === 0 ? (
                 <p>No quizzes played yet — every quiz is worth up to 10 points!</p>
               ) : (
-                <table className="styled-table">
-                  <thead>
-                    <tr>
-                      <th>Quiz</th>
-                      <th>Best Points</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {myScores.map((entry) => (
-                      <tr key={entry.quiz}>
-                        <td>{quizzes.find((quiz) => quiz.slug === entry.quiz)?.title || entry.quiz}</td>
-                        <td>{entry.points} / 10</td>
+                <div className="scroll-table">
+                  <table className="styled-table">
+                    <thead>
+                      <tr>
+                        <th>Quiz</th>
+                        <th>Best Points</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {myScores.map((entry) => (
+                        <tr key={entry.quiz}>
+                          <td>{quizzes.find((quiz) => quiz.slug === entry.quiz)?.title || entry.quiz}</td>
+                          <td>{entry.points} / 10</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
               <button className="btn btn-danger" onClick={handleLogout}>
                 Logout
               </button>
+
+              <div className="danger-zone">
+                <button type="button" className="danger-zone-header" onClick={toggleDangerZone}>
+                  Danger Zone <span className="danger-chevron">{dangerOpen ? '▾' : '▸'}</span>
+                </button>
+                {dangerOpen && (
+                <div className="danger-zone-body">
+                {errorMsg && <div className="alert alert-danger">{errorMsg}</div>}
+                {!showDeleteConfirm ? (
+                  <button className="btn btn-danger" onClick={() => setShowDeleteConfirm(true)}>
+                    Delete Account
+                  </button>
+                ) : (
+                  <>
+                    <p>
+                      This permanently deletes your account, all of your scores and leaderboard
+                      entries, and any pending quiz suggestions. <strong>This cannot be undone.</strong>
+                    </p>
+                    <label htmlFor="delete-confirm" className="label">
+                      Type <strong>confirm</strong> to enable deletion:
+                    </label>
+                    <input
+                      id="delete-confirm"
+                      className="form-control delete-confirm-input"
+                      placeholder="confirm"
+                      value={deleteText}
+                      onChange={(e) => setDeleteText(e.target.value)}
+                    />
+                    <button
+                      className="btn btn-danger me-2"
+                      disabled={deleteText.trim().toLowerCase() !== 'confirm'}
+                      onClick={deleteAccount}
+                    >
+                      Permanently Delete My Account
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      onClick={() => { setShowDeleteConfirm(false); setDeleteText(''); }}
+                    >
+                      Cancel
+                    </button>
+                  </>
+                )}
+                </div>
+                )}
+              </div>
             </>
           )}
         </div>
         <div className="col-md-4">
-          <h4>Recommended Quizzes</h4>
-          <ul className="list-group">
-            {quizzes.slice(0, 4).map((quiz) => (
-              <li className="list-group-item" key={quiz.slug}>
-                <button className="btn" onClick={() => navigate(`/quiz/${quiz.slug}`)}>
-                  {quiz.title}
-                </button>
-              </li>
-            ))}
-          </ul>
+          <div className="rec-box">
+            <h4>Recommended Quizzes</h4>
+            <ul className="recquiz list-group">
+              {quizzes.slice(0, 4).map((quiz) => (
+                <li className="recquiz list-group-item" key={quiz.slug}>
+                  <button className="btn" onClick={() => navigate(`/quiz/${quiz.slug}`)}>
+                    {quiz.title}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       </div>
     </main>

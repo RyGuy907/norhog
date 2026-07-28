@@ -128,6 +128,13 @@ fieldset.difficulty label:hover {
   border-color: var(--gold);
 }
 
+/* The radios themselves are visually hidden, so the label has to carry the
+   keyboard focus ring. */
+fieldset.difficulty input[type='radio']:focus-visible + label {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
+}
+
 fieldset.difficulty label.selected {
   background-color: var(--navy);
   border-color: var(--navy);
@@ -148,7 +155,6 @@ fieldset.difficulty label.selected {
   text-align: center;
   font-size: 1.7rem;
   font-family: Georgia, serif;
-  border: none;
   background-color: var(--card);
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -163,6 +169,37 @@ fieldset.difficulty label.selected {
   font-size: 1.05rem;
   border: 2px solid var(--navy);
   border-radius: 8px;
+}
+
+/* Keep the answer box on its own full-width row on a phone rather than
+   letting the timer and score push it around. */
+@media (max-width: 575px) {
+  #timer, #score {
+    width: calc(50% - 5px);
+    font-size: 1.4rem;
+  }
+
+  #answerbox {
+    flex: 1 1 100%;
+  }
+
+  .quiz-btn {
+    width: 100%;
+  }
+}
+
+.answer-mark {
+  margin-right: 6px;
+  font-weight: 700;
+}
+
+.quiz-error {
+  background-color: rgba(163, 64, 44, 0.12);
+  border: 1px solid var(--brick);
+  border-radius: 8px;
+  padding: 10px 14px;
+  color: var(--brick);
+  font-weight: 600;
 }
 
 #answerbox:focus {

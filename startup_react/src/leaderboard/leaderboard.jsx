@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
+import { usePageTitle } from '../usePageTitle';
 import './leaderboard.css';
 
 export function Leaderboard() {
+  usePageTitle('Leaderboard');
   const [scores, setScores] = useState([]);
 
   useEffect(() => {
@@ -14,14 +16,19 @@ export function Leaderboard() {
   useEffect(() => {
     let socket;
     let cancelled = false;
+    let retry;
 
     const connect = () => {
       socket = new WebSocket(`${window.location.origin.replace(/^http/, 'ws')}/ws`);
 
       socket.onmessage = (event) => {
-        const message = JSON.parse(event.data);
-        if (message.type === 'updateScores') {
-          setScores(message.allScores);
+        try {
+          const message = JSON.parse(event.data);
+          if (message.type === 'updateScores') {
+            setScores(message.allScores);
+          }
+        } catch {
+          // A malformed frame shouldn't take the page down.
         }
       };
 
@@ -32,7 +39,7 @@ export function Leaderboard() {
       // Reconnect if the connection drops (e.g. service restart).
       socket.onclose = () => {
         if (!cancelled) {
-          setTimeout(connect, 3000);
+          retry = setTimeout(connect, 3000);
         }
       };
     };
@@ -41,6 +48,8 @@ export function Leaderboard() {
 
     return () => {
       cancelled = true;
+      // Without clearing this, unmounting mid-backoff opens a stray socket.
+      clearTimeout(retry);
       socket.close();
     };
   }, []);
@@ -49,7 +58,7 @@ export function Leaderboard() {
     ? scores.map((score, index) => (
         <tr key={index}>
           <td>{index + 1}</td>
-          <td>{score.user || 'Unknown'}</td>
+          <td>{score.name || 'Unknown'}</td>
           <td>{score.points}</td>
           <td>{score.quizzes}</td>
         </tr>
@@ -63,17 +72,19 @@ export function Leaderboard() {
   return (
     <main className="leaderboard-page text-center">
       <h1>Leaderboard</h1>
-      <table className="table table-striped">
-        <thead className="table-dark">
-          <tr>
-            <th>#</th>
-            <th>Name</th>
-            <th>Total Points</th>
-            <th>Quizzes Played</th>
-          </tr>
-        </thead>
-        <tbody>{scoreRows}</tbody>
-      </table>
+      <div className="table-responsive">
+        <table className="table table-striped">
+          <thead className="table-dark">
+            <tr>
+              <th scope="col">#</th>
+              <th scope="col">Name</th>
+              <th scope="col">Total Points</th>
+              <th scope="col">Quizzes Played</th>
+            </tr>
+          </thead>
+          <tbody>{scoreRows}</tbody>
+        </table>
+      </div>
     </main>
   );
 }
