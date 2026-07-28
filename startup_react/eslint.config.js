@@ -38,7 +38,9 @@ export default [
         sourceType: 'module',
       },
     },
-    settings: { react: { version: '18.3' } },
+    // 'detect' reads the installed React rather than pinning a version here,
+    // which had drifted a major behind.
+    settings: { react: { version: 'detect' } },
     plugins: {
       react,
       'react-hooks': reactHooks,
