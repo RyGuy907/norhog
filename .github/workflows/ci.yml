@@ -115,7 +115,7 @@ jobs:
 
       # OIDC federation: GitHub presents a short-lived token and assumes the role.
       # No long-lived AWS access keys are stored in this repository.
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@v5
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: us-west-2

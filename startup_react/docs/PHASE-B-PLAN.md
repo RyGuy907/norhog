@@ -216,53 +216,68 @@ link verifies the account, and an unverified account is blocked from scoring.
 
 ---
 
-## 9. CI/CD with GitHub Actions
+## 9. CI/CD with GitHub Actions — **DONE**, but not as planned
 
-Only after a manual deploy has worked end to end.
+Built in `.github/workflows/ci.yml`. Two things changed from the design above.
 
-### Two workflows
+### Why the SSH deploy was abandoned
 
-**`.github/workflows/ci.yml`** — on every push and PR:
+The plan assumed CI could `scp`/`ssh` into the box. It cannot: the security group
+allows port 22 from one home IP, and GitHub runners come from a large rotating
+pool. Opening 22 to the world to work around that trades a real security property
+for convenience. A self-hosted runner on the instance was also ruled out — only
+~140 MB of RAM is free on a `t3.nano`, less than the Actions runner needs before
+it does any work.
 
-```yaml
-- npm ci                    # root
-- npm run lint
-- npm test                  # 25 frontend tests
-- npm ci  --prefix service
-- npm test --prefix service # 43 backend tests
-```
+**What was built instead:** CI builds a tarball, uploads it to S3, and calls
+`ssm:SendCommand` to run `deployFromS3.sh` on the instance. GitHub never opens a
+connection to the server, so **port 22 stays closed**, and there is no SSH key in
+the repository at all. Authentication is GitHub OIDC federation into an IAM role,
+so there are no long-lived AWS keys either — the `EC2_HOST` / `EC2_SSH_KEY`
+secrets in the table above were never needed.
 
-**`.github/workflows/deploy.yml`** — on push to `main` only, and only if CI passed:
+### One workflow, not two
 
-```yaml
-- npm ci && npm run build
-- rsync/scp dist + service files to EC2 over SSH
-- ssh: npm ci --omit=dev && pm2 restart startup
-```
+Deploy is a gated job inside `ci.yml` rather than a separate `deploy.yml`, so
+`needs: [frontend, service]` gates it on the test jobs directly. A separate
+workflow would need `workflow_run`, which fires on completion regardless of
+outcome and then needs its own conclusion check and explicit ref handling — more
+moving parts for the same guarantee.
 
-### Required change to secret handling
+### Actual configuration
 
-`deployService.sh` currently copies `service/*.json`, which **includes
-`dbConfig.json`** — it ships your Atlas credentials from your laptop on every
-deploy. CI has no such file, and putting it in GitHub Secrets means storing
-database credentials in a third party.
+| Where | Name | Value |
+|---|---|---|
+| GitHub secret | `AWS_DEPLOY_ROLE_ARN` | the `norhog-github-deploy` role |
+| GitHub variable | `DEPLOY_BUCKET` | `norhog-deploy-artifacts` |
+| GitHub variable | `INSTANCE_ID` | `i-054760b34c781e845` |
+| IAM role | `norhog-ec2-role` | `AmazonSSMManagedInstanceCore` + `s3:GetObject` on the artifact bucket |
+| IAM role | `norhog-github-deploy` | `s3:PutObject`, `ssm:SendCommand`, `ssm:GetCommandInvocation` |
 
-**Better:** place `dbConfig.json` on the server once (`chmod 600`), exclude it
-from the deploy bundle, and let deploys never touch it. This is strictly more
-secure than today's behaviour and is a prerequisite for CI/CD.
+The trust policy pins the OIDC subject to
+`repo:RyGuy907/norhog:ref:refs/heads/main`. That exact string matters: the repo
+was renamed from `startup`, and the first attempt used the old name, which would
+have failed `AssumeRoleWithWebIdentity`. Restricting the branch is what stops a
+pull request from a fork assuming the deploy role.
 
-### GitHub secrets needed
+### Safety properties
 
-| Secret | Value |
-|---|---|
-| `EC2_HOST` | Elastic IP or domain |
-| `EC2_SSH_KEY` | Private key contents for a **deploy-only** key pair (not your personal `.pem`) |
+- **Credentials never leave the server.** The bundle contains only `*.js` and the
+  two package manifests; the workflow asserts `dbConfig.json` is absent and fails
+  the build if it appears.
+- **Automatic rollback.** `deployFromS3.sh` keeps one previous release and
+  restores it if either `npm ci` or the post-restart smoke check fails.
+- **`NODE_ENV` is exported explicitly** before `pm2 restart --update-env`, because
+  pm2 adopts the calling shell's environment and SSM invokes commands with a bare
+  one. Without that line every deploy would quietly drop the flag that makes
+  session cookies `Secure`.
+- **The smoke check tests the port, not the process.** pm2 reporting "online" does
+  not mean anything is listening — see the boot-guard bug in section 6.
 
-Generate a fresh keypair for CI and add the public half to
-`~/.ssh/authorized_keys` on the instance, so revoking CI access doesn't lock you out.
-
-**Done when:** a merge to `main` results in the live site updating with no manual
-step, and a failing test blocks the deploy.
+**Done:** verified end to end on 2026-07-28. A push to `main` runs lint, both test
+suites, and a build; on success it deploys and confirms `https://norhog.com`
+returns 200. `NODE_ENV=production` confirmed intact on the running process
+afterwards.
 
 ---
 
