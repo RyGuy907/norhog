@@ -129,6 +129,35 @@ describe('quiz endpoints', () => {
   });
 });
 
+// The sanitizer cannot reassign req.query — it is a getter — so it empties and
+// refills the object in place. That is a load-bearing detail: if it ever stops
+// working, query parameters silently vanish and every board returns global
+// totals instead of the quiz's. Nothing else here exercises a query string.
+describe('query string handling', () => {
+  it('passes a normal query parameter through sanitization to the route', async () => {
+    const res = await request(app).get('/api/scores?quiz=test-quiz').expect(200);
+    // The three-board shape proves req.query.quiz survived; without it the
+    // route falls through to the global totals array.
+    expect(res.body).toHaveProperty('easy');
+    expect(res.body).toHaveProperty('medium');
+    expect(res.body).toHaveProperty('hard');
+    expect(Array.isArray(res.body)).toBe(false);
+  });
+
+  it('passes multiple query parameters through', async () => {
+    const res = await request(app).get('/api/scores?quiz=test-quiz&difficulty=easy').expect(200);
+    expect(Array.isArray(res.body)).toBe(true);
+  });
+
+  it('never lets a query-smuggled operator object reach the data layer', async () => {
+    // Express 4 parses this into { $gt: '' }; Express 5's simpler default parser
+    // keeps it a flat string key. Either way no operator may reach the database.
+    await request(app).get('/api/scores?quiz[$gt]=');
+    const leaked = store.keysSeen.filter((k) => k !== null && typeof k !== 'string');
+    expect(leaked).toEqual([]);
+  });
+});
+
 describe('registration and login', () => {
   it('rejects an invalid email', async () => {
     const res = await request(app)
