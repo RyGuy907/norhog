@@ -14,14 +14,21 @@ One-time setup for hosting Norhog on AWS. After this, every deploy is just
 4. Get the cluster hostname from *Connect → Drivers* (the `cluster0.xxxxx.mongodb.net` part
    of the connection string).
 5. Create `service/dbConfig.json` locally from `dbConfig.example.json` with the hostname,
-   user, and password. **Never commit it** (it's gitignored). The deploy script ships it
-   to the server automatically.
+   user, and password. **Never commit it** (it's gitignored), and keep a copy in a
+   password manager — losing it means recreating the database user.
+
+   The deploy script deliberately does **not** ship this file. The server gets its own
+   copy, placed once by hand (step 6), so credentials never ride along with a deploy
+   and CI can run the same script without ever seeing them.
 
 ## 2. EC2 instance
 
 1. AWS Console → EC2 → **Launch instance**:
-   - AMI: Ubuntu Server 22.04 LTS (or the CS260 course AMI, which has Caddy/Node preinstalled)
-   - Type: `t3.micro` (or `t2.micro` on the free tier)
+   - AMI: Ubuntu Server 24.04 LTS — supported to 2029, where 22.04 lapses in April 2027.
+     The deploy script SSHes as `ubuntu@`, so a non-Ubuntu AMI means editing it.
+   - Type: `t3.nano` — enough for this workload given a production-only install and the
+     swap file below. Resize to `t3.micro` later if it struggles: stop, change type,
+     start. The Elastic IP stays attached, so no DNS change and no new certificate.
    - Key pair: create one, download the `.pem`, `chmod 600` it
    - Security group inbound rules:
      - SSH (22) — *your IP only*
@@ -30,9 +37,10 @@ One-time setup for hosting Norhog on AWS. After this, every deploy is just
      - **Do not** open port 4000 — Caddy proxies to it internally.
 2. If using stock Ubuntu, install the runtime:
    ```bash
-   # Node 20 via nvm
+   # Node 22 via nvm — matches local dev (v22.11.0) and is in LTS maintenance.
+   # Do NOT install Node 20: it went end-of-life in April 2026.
    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
-   . ~/.nvm/nvm.sh && nvm install 20
+   . ~/.nvm/nvm.sh && nvm install 22 && nvm alias default 22
    npm install -g pm2
 
    # Caddy
@@ -40,6 +48,16 @@ One-time setup for hosting Norhog on AWS. After this, every deploy is just
    curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
    curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
    sudo apt update && sudo apt install caddy
+   ```
+3. **Swap** — required on `t3.nano` (0.5 GB), harmless on larger types. Without it an
+   `npm ci` that has to compile `bcrypt` from source can get OOM-killed mid-deploy:
+   ```bash
+   sudo fallocate -l 1G /swapfile
+   sudo chmod 600 /swapfile
+   sudo mkswap /swapfile
+   sudo swapon /swapfile
+   echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab   # survives reboot
+   free -h   # confirm the swap line is non-zero
    ```
 
 ## 3. Elastic IP
@@ -75,14 +93,31 @@ and proxies WebSocket upgrades natively — `wss://yourdomain.com/ws` just works
 
 ## 6. First deploy
 
+### 6a. Place the database credentials on the server (once)
+
+The deploy wipes `~/services/startup` every time, so the credentials live outside it
+and the script symlinks them back in. Do this before the first deploy or the script
+will stop and tell you to:
+
+```bash
+ssh -i ~/keys/yourkey.pem ubuntu@yourdomain.com
+mkdir -p ~/config/startup
+nano ~/config/startup/dbConfig.json     # paste the same contents as your local copy
+chmod 600 ~/config/startup/dbConfig.json
+```
+
+This file is written once and never touched again by a deploy.
+
+### 6b. Deploy
+
 From `startup_react/` on your machine (Git Bash on Windows):
 
 ```bash
 ./deployService.sh -k ~/keys/yourkey.pem -h yourdomain.com -s startup
 ```
 
-The script builds the frontend, bundles it with the service (including `dbConfig.json`),
-and copies everything to `~/services/startup` on the instance. The script ends with
+The script builds the frontend, bundles it with the service, and copies everything to
+`~/services/startup` on the instance. The script ends with
 `pm2 restart startup`, which fails the very first time — start it once manually:
 
 ```bash
