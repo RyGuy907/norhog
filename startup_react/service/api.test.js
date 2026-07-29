@@ -26,6 +26,19 @@ vi.mock('./database.js', () => {
     const k = key(value);
     return k ? store.users.find((u) => u[field] === k) || null : null;
   };
+  // Shared by the site-wide and per-user boards, matching the real pipeline.
+  const rankByPlays = (scores, limit) => {
+    const counts = new Map();
+    for (const s of scores) counts.set(s.quiz, (counts.get(s.quiz) || 0) + 1);
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, limit)
+      .map(([slug, plays]) => {
+        const quiz = store.quizzes.find((q) => q.slug === slug);
+        return quiz ? { slug, plays, title: quiz.title, image: quiz.image } : null;
+      })
+      .filter(Boolean);
+  };
   return {
     getUser: async (email) => findBy('email', email),
     getUserByName: async (name) => findBy('nameLower', name),
@@ -47,6 +60,13 @@ vi.mock('./database.js', () => {
     getUserBestTime: async () => null,
     getUserScores: async () => [],
     deleteScoresForQuiz: async () => {},
+    // Mirrors the real aggregation: count score docs per quiz, join the quiz for
+    // its display fields, drop any whose quiz no longer exists.
+    getPopularQuizzes: async (limit = 5) => rankByPlays(store.scores, limit),
+    getUserFavoriteQuizzes: async (user, limit = 4) => {
+      const k = key(user);
+      return k ? rankByPlays(store.scores.filter((s) => s.user === k), limit) : [];
+    },
     getSuggestions: async () => store.suggestions,
     addSuggestion: async (s) => void store.suggestions.push(s),
     getSuggestion: async () => null,
@@ -62,7 +82,7 @@ vi.mock('./database.js', () => {
   };
 });
 
-const { app } = await import('./index.js');
+const { app, resetRateLimits } = await import('./index.js');
 
 const testQuiz = {
   slug: 'test-quiz',
@@ -84,6 +104,10 @@ const testQuiz = {
 const credentials = { email: 'player@example.com', password: 'testpassword123', displayName: 'Player One' };
 
 beforeEach(() => {
+  // The rate limiters keep per-process counters, so without this an earlier
+  // test's registrations push a later one over the limit and it fails for a
+  // reason that has nothing to do with what it is testing.
+  resetRateLimits();
   store.users = [];
   store.quizzes = [structuredClone(testQuiz)];
   store.scores = [];
@@ -126,6 +150,91 @@ describe('quiz endpoints', () => {
   it('returns a JSON 404 for unknown API routes', async () => {
     const res = await request(app).get('/api/not-a-real-route').expect(404);
     expect(res.body.msg).toBe('Not found');
+  });
+});
+
+describe('popular quizzes', () => {
+  it('is empty before anything has been played', async () => {
+    const res = await request(app).get('/api/quizzes/popular').expect(200);
+    expect(res.body).toEqual([]);
+  });
+
+  it('ranks quizzes by play count and includes title and image', async () => {
+    store.quizzes.push({ ...structuredClone(testQuiz), slug: 'second-quiz', title: 'Second Quiz', image: 'https://example.com/two.png' });
+    store.scores.push(
+      { user: 'a@example.com', quiz: 'second-quiz' },
+      { user: 'b@example.com', quiz: 'second-quiz' },
+      { user: 'c@example.com', quiz: 'test-quiz' }
+    );
+
+    const res = await request(app).get('/api/quizzes/popular').expect(200);
+    expect(res.body).toHaveLength(2);
+    expect(res.body[0]).toMatchObject({ slug: 'second-quiz', plays: 2, title: 'Second Quiz' });
+    expect(res.body[1]).toMatchObject({ slug: 'test-quiz', plays: 1 });
+    expect(res.body[0].image).toBe('https://example.com/two.png');
+  });
+
+  it('counts repeat plays by the same user', async () => {
+    store.scores.push(
+      { user: 'a@example.com', quiz: 'test-quiz' },
+      { user: 'a@example.com', quiz: 'test-quiz' }
+    );
+    const res = await request(app).get('/api/quizzes/popular').expect(200);
+    expect(res.body[0]).toMatchObject({ slug: 'test-quiz', plays: 2 });
+  });
+
+  it('never leaks answers or player identities', async () => {
+    store.scores.push({ user: 'player@example.com', quiz: 'test-quiz', name: 'Player One' });
+    const res = await request(app).get('/api/quizzes/popular').expect(200);
+    const body = JSON.stringify(res.body);
+    expect(body).not.toContain('Paris');
+    expect(body).not.toContain('player@example.com');
+    expect(body).not.toContain('Player One');
+    expect(Object.keys(res.body[0]).sort()).toEqual(['image', 'plays', 'slug', 'title']);
+  });
+
+  it('requires a session for the personal favourites board', async () => {
+    await request(app).get('/api/quizzes/favorites').expect(401);
+  });
+
+  it('counts only the signed-in user\'s own plays', async () => {
+    const agent = await signedInAgent();
+    store.quizzes.push({ ...structuredClone(testQuiz), slug: 'other-quiz', title: 'Other Quiz' });
+    store.scores.push(
+      // Someone else hammering a quiz must not appear in this user's favourites.
+      { user: 'stranger@example.com', quiz: 'other-quiz' },
+      { user: 'stranger@example.com', quiz: 'other-quiz' },
+      { user: 'stranger@example.com', quiz: 'other-quiz' },
+      { user: 'player@example.com', quiz: 'test-quiz' }
+    );
+
+    const res = await agent.get('/api/quizzes/favorites').expect(200);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0]).toMatchObject({ slug: 'test-quiz', plays: 1 });
+  });
+
+  it('ranks a user\'s own quizzes by how often they replayed them', async () => {
+    const agent = await signedInAgent();
+    store.quizzes.push({ ...structuredClone(testQuiz), slug: 'other-quiz', title: 'Other Quiz' });
+    store.scores.push(
+      { user: 'player@example.com', quiz: 'test-quiz' },
+      { user: 'player@example.com', quiz: 'other-quiz' },
+      { user: 'player@example.com', quiz: 'other-quiz' }
+    );
+
+    const res = await agent.get('/api/quizzes/favorites').expect(200);
+    expect(res.body[0]).toMatchObject({ slug: 'other-quiz', plays: 2 });
+    expect(res.body[1]).toMatchObject({ slug: 'test-quiz', plays: 1 });
+  });
+
+  it('caps the list at five', async () => {
+    for (let i = 0; i < 8; i += 1) {
+      store.quizzes.push({ ...structuredClone(testQuiz), slug: `q${i}`, title: `Quiz ${i}` });
+      for (let n = 0; n <= i; n += 1) store.scores.push({ user: 'a@example.com', quiz: `q${i}` });
+    }
+    const res = await request(app).get('/api/quizzes/popular').expect(200);
+    expect(res.body).toHaveLength(5);
+    expect(res.body[0].slug).toBe('q7');
   });
 });
 

@@ -193,6 +193,19 @@ apiRouter.get('/quizzes', route(async (_req, res) => {
   res.status(200).send(await DB.getQuizzes());
 }));
 
+// Most-played quizzes for the leaderboard sidebar. Public, like the boards it
+// sits next to, and returns only display fields — no answers, no player names.
+apiRouter.get('/quizzes/popular', route(async (_req, res) => {
+  res.status(200).send(await DB.getPopularQuizzes(5));
+}));
+
+// The signed-in player's own most-played quizzes. The identity comes from the
+// session cookie via verifyAuth, never from the request, so one user cannot ask
+// for another's history.
+apiRouter.get('/quizzes/favorites', verifyAuth, route(async (req, res) => {
+  res.status(200).send(await DB.getUserFavoriteQuizzes(req.user.email, 4));
+}));
+
 // Public quiz payload: question text plus locked answers. Each accepted
 // spelling becomes an id (to match a guess against) and a ciphertext of the
 // display answer keyed by that spelling, so nothing readable ships to the
@@ -642,6 +655,14 @@ function start() {
 if (!process.env.VITEST) {
   await seedStarterQuizzes();
   start();
+}
+
+// Test-only helper: the limiters hold per-process counters that outlive an
+// individual case, so a suite sharing one app instance must clear them between
+// tests. Not referenced by the running service.
+export function resetRateLimits() {
+  authLimiter.reset();
+  writeLimiter.reset();
 }
 
 export { app };

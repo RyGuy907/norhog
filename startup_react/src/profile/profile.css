@@ -1,3 +1,9 @@
+/* Favourites sits above Recommended in the sidebar. .rec-box already carries an
+   8px top margin, so this only needs to match the card above it. */
+.profile-favorites {
+  margin-top: 8px;
+}
+
 .profile-card {
   background-color: var(--card);
   border: 1px solid var(--line);

@@ -206,31 +206,33 @@ export function Admin() {
         </button>
       </div>
       {errorMsg && <div className="alert alert-danger">{errorMsg}</div>}
-      <table className="styled-table">
-        <thead>
-          <tr>
-            <th>Title</th>
-            <th>Slug</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {quizzes.map((quiz) => (
-            <tr key={quiz.slug}>
-              <td>{quiz.title}</td>
-              <td>{quiz.slug}</td>
-              <td>
-                <button className="btn btn-sm btn-secondary me-2" onClick={() => startEdit(quiz.slug)}>
-                  Edit
-                </button>
-                <button className="btn btn-sm btn-danger" onClick={() => handleDelete(quiz.slug)}>
-                  Delete
-                </button>
-              </td>
+      <div className="scroll-table scroll-table-quizzes">
+        <table className="styled-table">
+          <thead>
+            <tr>
+              <th>Title</th>
+              <th>Slug</th>
+              <th></th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {quizzes.map((quiz) => (
+              <tr key={quiz.slug}>
+                <td>{quiz.title}</td>
+                <td>{quiz.slug}</td>
+                <td>
+                  <button className="btn btn-sm btn-secondary me-2" onClick={() => startEdit(quiz.slug)}>
+                    Edit
+                  </button>
+                  <button className="btn btn-sm btn-danger" onClick={() => handleDelete(quiz.slug)}>
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       <h2>Pending Suggestions</h2>
       {suggestions.length === 0 ? (

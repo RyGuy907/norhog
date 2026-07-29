@@ -77,6 +77,16 @@
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
 }
 
+/* Optional supporting line under the title, in the same overlay. */
+.quiz-card-meta {
+  display: block;
+  margin-top: 2px;
+  color: var(--gold);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
 /* Completed quizzes (best possible points earned) grey out */
 .quiz-card {
   position: relative;

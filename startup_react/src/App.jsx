@@ -44,6 +44,16 @@ function App() {
         <header className="header">
           <div className="header-bar">
             <NavLink to="/" className="brand">
+              {/* Decorative: the adjacent wordmark already names the link, so an
+                  alt here would just be read out twice. Intrinsic size is set to
+                  reserve the space and avoid a layout shift while it loads. */}
+              <img
+                className="brand-mark"
+                src="/norhog-logo.png"
+                alt=""
+                width="89"
+                height="105"
+              />
               <h1>Norhog<sup>&reg;</sup></h1>
             </NavLink>
             <nav>

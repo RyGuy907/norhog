@@ -4,7 +4,9 @@ import { Link } from 'react-router-dom';
 // A quiz tile. status = {points, perfectCount} from /api/scores/me (or undefined).
 // Completed (best possible 10 points) tiles grey out; a star marks perfect
 // runs on all three difficulties.
-export function QuizCard({ quiz, status }) {
+// meta is optional supporting text shown beneath the title in the same overlay
+// (the leaderboard's Most Played board uses it for the play count).
+export function QuizCard({ quiz, status, meta }) {
   const completed = status?.points === 10;
   const starred = status?.perfectCount === 3;
   // Tall images are cropped from the top so the subject's head stays in
@@ -25,6 +27,7 @@ export function QuizCard({ quiz, status }) {
       )}
       <div className="quiz-card-body">
         <h3>{quiz.title}</h3>
+        {meta && <span className="quiz-card-meta">{meta}</span>}
       </div>
     </Link>
   );

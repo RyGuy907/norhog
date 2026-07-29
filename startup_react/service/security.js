@@ -85,7 +85,7 @@ export function rateLimit({ windowMs, max, message }) {
     }
   }, windowMs).unref();
 
-  return (req, res, next) => {
+  const middleware = (req, res, next) => {
     const key = `${req.ip}:${req.baseUrl}${req.path}`;
     const now = Date.now();
     const entry = hits.get(key);
@@ -100,4 +100,12 @@ export function rateLimit({ windowMs, max, message }) {
     }
     next();
   };
+
+  // The counters are module-level and outlive a single test. A suite that shares
+  // one app instance therefore leaks limiter state between cases, so adding an
+  // auth test can push an unrelated one over the limit. Nothing in the running
+  // service calls this.
+  middleware.reset = () => hits.clear();
+
+  return middleware;
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { QuizCard } from '../quizCard';
 import { shuffle } from '../shuffle';
 import { usePageTitle } from '../usePageTitle';
 import './profile.css';
@@ -23,6 +24,7 @@ export function Profile() {
   const [myScores, setMyScores] = useState([]);
   const [errorMsg, setErrorMsg] = useState('');
   const [quizzes, setQuizzes] = useState([]);
+  const [favorites, setFavorites] = useState([]);
   const [dangerOpen, setDangerOpen] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteText, setDeleteText] = useState('');
@@ -33,6 +35,9 @@ export function Profile() {
     setAuthState(AuthState.Unauthenticated);
     setTotalPoints(0);
     setMyScores([]);
+    // Someone else may log in on this browser; don't leave the previous
+    // account's play history on screen.
+    setFavorites([]);
     setCreationDate('');
     setDangerOpen(false);
     setShowDeleteConfirm(false);
@@ -164,9 +169,21 @@ export function Profile() {
       .catch(() => {});
   }, []);
 
+  // The server derives the account from the session cookie, so this needs no
+  // argument — and one user can't request another's history.
+  const fetchFavorites = async () => {
+    try {
+      const response = await fetch('/api/quizzes/favorites');
+      setFavorites(response.ok ? await response.json() : []);
+    } catch {
+      // Supplementary board; a failure here shouldn't disturb the profile.
+    }
+  };
+
   useEffect(() => {
     if (authState === AuthState.Authenticated && userName) {
       fetchScores(userName);
+      fetchFavorites();
     }
   }, [authState, userName]);
 
@@ -345,6 +362,26 @@ export function Profile() {
           )}
         </div>
         <div className="col-md-4">
+          {authState === AuthState.Authenticated && (
+            <aside className="quiz-board profile-favorites">
+              <h2 className="quiz-board-heading">Your Favorites</h2>
+              {favorites.length === 0 ? (
+                <p className="quiz-board-empty">
+                  Play a quiz and the ones you come back to will show up here.
+                </p>
+              ) : (
+                <div className="quiz-board-grid">
+                  {favorites.map((quiz) => (
+                    <QuizCard
+                      key={quiz.slug}
+                      quiz={quiz}
+                      meta={`${quiz.plays} ${quiz.plays === 1 ? 'play' : 'plays'}`}
+                    />
+                  ))}
+                </div>
+              )}
+            </aside>
+          )}
           <div className="rec-box">
             <h4>Recommended Quizzes</h4>
             <ul className="recquiz list-group">

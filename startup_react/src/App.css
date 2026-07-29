@@ -93,9 +93,46 @@ main h2 {
   gap: 10px;
 }
 
+/* Logo and wordmark are one link back to home, so they align and hover together. */
 .brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   text-decoration: none;
   color: #fff;
+}
+
+/* The mark renders at 58px but only occupies 32px of layout.
+   A flex container sizes to its items' MARGIN boxes, so the -13px top and bottom
+   margins cancel 26px of the height: 58 - 26 = 32, which matches the wordmark and
+   leaves the bar at the 61px it was before any logo existed. The extra height
+   spills into the header's 14px padding instead of pushing the bar taller.
+   Nothing here sets overflow: hidden, so the spill is not clipped. */
+/* The margins still sum to -26px, so the layout contribution is unchanged, but
+   shifting 2px of it from top to bottom drops him until his feet sit on the gold
+   rule under the bar instead of floating just above it. */
+.brand-mark {
+  height: 58px;
+  width: auto;
+  display: block;
+  flex-shrink: 0;
+  margin-top: -11px;
+  margin-bottom: -15px;
+}
+
+/* The header bar wraps on narrow screens; shrink the mark so the logo and
+   wordmark still fit on one line before the nav drops below them. */
+@media (max-width: 575px) {
+  /* Same trick, scaled down: 44 - 16 = 28px of layout. */
+  .brand-mark {
+    height: 44px;
+    margin-top: -8px;
+    margin-bottom: -8px;
+  }
+
+  .brand {
+    gap: 8px;
+  }
 }
 
 .brand h1 {
@@ -325,6 +362,72 @@ button, .btn {
   z-index: 1;
   border-bottom: none;
   box-shadow: 0 2px 0 var(--gold);
+}
+
+/* The Quiz Manager grows with every quiz added, so cap it at ten rows plus the
+   pinned header: 45.8px header + 10 x 52px rows. Its rows are taller than the
+   profile tables on the base .scroll-table height because each one carries a
+   31px btn-sm alongside the 10px cell padding. */
+.scroll-table-quizzes {
+  max-height: 566px;
+}
+
+/* A panel of quiz tiles under a navy header. Used by the leaderboard's Most
+   Played board and the profile's Favourites board, so it lives here rather than
+   in either page's stylesheet. */
+.quiz-board {
+  background-color: var(--card);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.quiz-board-heading {
+  background-color: var(--navy);
+  border-bottom: 2px solid var(--gold);
+  color: #fff;
+  /* `main h2 { display: inline-block }` above would otherwise shrink this bar to
+     the width of its text and leave the rest of the header white. */
+  display: block;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  margin: 0;
+  padding: 12px 16px;
+}
+
+.quiz-board-empty {
+  color: var(--muted);
+  margin: 0;
+  padding: 16px;
+}
+
+/* Two tiles per row. These are the same QuizCard used on the home page and in
+   the gallery, so the title overlay, gold underline and portrait top-crop all
+   come along for free — the only addition is the count in quiz-card-meta. */
+.quiz-board-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, 1fr);
+  padding: 14px;
+}
+
+/* An odd count leaves a gap in the last row; let the final tile span both
+   columns so the block still reads as finished. */
+.quiz-board-grid > :last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+
+/* One per row on the narrowest screens, where a half-width tile gets too small
+   for its title to sit legibly over the image. */
+@media (max-width: 420px) {
+  .quiz-board-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .quiz-board-grid > :last-child:nth-child(odd) {
+    grid-column: auto;
+  }
 }
 
 .suggest-box {

@@ -14,3 +14,13 @@
   border-radius: 10px;
   overflow: hidden;
 }
+
+/* The Most Played board itself is styled by .quiz-board in App.css, shared with
+   the profile page's Favourites board. */
+
+/* Stacked under the table on narrow screens, so give it breathing room. */
+@media (max-width: 991px) {
+  .leaderboard-page .quiz-board {
+    margin-top: 4px;
+  }
+}

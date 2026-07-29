@@ -2,6 +2,7 @@
   "hostname": "cluster0.xxxxx.mongodb.net",
   "userName": "your-atlas-db-user",
   "password": "your-atlas-db-password",
+  "dbName": "quiz-dev (optional - defaults to 'quiz'; set it in a local checkout so a laptop does not read and write the records the live site is serving)",
   "s3Bucket": "your-image-bucket-name (optional - omit to disable image uploads)",
-  "s3Region": "us-east-1"
+  "s3Region": "us-west-2"
 }

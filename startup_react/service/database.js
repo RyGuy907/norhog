@@ -11,7 +11,10 @@ try {
 
 const url = `mongodb+srv://${config.userName}:${encodeURIComponent(config.password)}@${config.hostname}`;
 const client = new MongoClient(url);
-const db = client.db('quiz');
+// Defaults to the production database. Set dbName in dbConfig.json to point a
+// local checkout at a scratch database instead — otherwise `npm start` on a
+// laptop reads and writes the same records the live site is serving.
+const db = client.db(config.dbName || 'quiz');
 const userCollection = db.collection('users');
 const scoreCollection = db.collection('scores');
 const quizCollection = db.collection('quizzes');
@@ -176,6 +179,48 @@ export function getUserScores(user) {
       { $sort: { quiz: 1 } },
     ])
     .toArray();
+}
+
+// Rank quizzes by play count and attach the fields a tile needs. Shared by the
+// site-wide board and the per-user one so the two can't drift apart.
+const playCountPipeline = (limit) => [
+  { $group: { _id: '$quiz', plays: { $sum: 1 } } },
+  { $sort: { plays: -1, _id: 1 } },
+  { $limit: limit },
+  {
+    $lookup: {
+      from: 'quizzes',
+      localField: '_id',
+      foreignField: 'slug',
+      as: 'quiz',
+    },
+  },
+  // Scores are deleted with their quiz, so an empty lookup should not happen —
+  // but drop it rather than render a card with no title if it ever does.
+  { $match: { 'quiz.0': { $exists: true } } },
+  {
+    $project: {
+      _id: 0,
+      slug: '$_id',
+      plays: 1,
+      title: { $arrayElemAt: ['$quiz.title', 0] },
+      image: { $arrayElemAt: ['$quiz.image', 0] },
+    },
+  },
+];
+
+// Most-played quizzes across everyone, for the leaderboard's sidebar. One score
+// document is written per finished run, so this counts plays rather than
+// distinct players — and only signed-in runs are recorded, guests play unscored.
+export function getPopularQuizzes(limit = 5) {
+  return scoreCollection.aggregate(playCountPipeline(limit)).toArray();
+}
+
+// The same board scoped to one player: the quizzes they come back to most.
+export function getUserFavoriteQuizzes(user, limit = 4) {
+  const key = asKey(user);
+  if (!key) return Promise.resolve([]);
+  return scoreCollection.aggregate([{ $match: { user: key } }, ...playCountPipeline(limit)]).toArray();
 }
 
 export function deleteScoresForQuiz(quiz) {
