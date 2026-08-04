@@ -3,7 +3,15 @@
 Norhog is a full-stack quiz web application where users race a 60-second clock to answer
 history questions, then compete for spots on a live leaderboard.
 
-**Live demo:** _(URL coming after deployment)_
+**Live demo:** [norhog.com](https://norhog.com)
+
+> **A note on the data.** The live site ships with seeded content so the features
+> are visible rather than empty: 60 starter quizzes, and 18 fictional players
+> with generated play history behind the leaderboard, the per-quiz fastest-times
+> boards and the Most Played ranking. Those accounts are display data, not real
+> users — they have unusable password hashes and cannot be signed into. Scores
+> and times are generated to be self-consistent with the app's own scoring rules.
+> `service/seedDemoPlayers.mjs` creates them and `--purge` removes them.
 
 ## Features
 
@@ -143,6 +151,10 @@ Prereqs: Node 18+, a MongoDB Atlas cluster (free M0 tier works).
    `s3Region` fields are optional — without them, image uploads are disabled and the
    admin form accepts pasted image URLs only. With them, the service needs AWS
    credentials (locally: `aws configure`; on EC2: the instance role).
+
+   **Set `"dbName": "quiz-dev"`.** It defaults to `quiz`, which is the database the
+   live site serves — without this, a local checkout reads and writes production
+   records, and anything you try locally is immediately visible to everyone.
 2. Start the backend (must run from `service/` — static paths are cwd-relative):
    ```bash
    cd service
@@ -155,6 +167,26 @@ Prereqs: Node 18+, a MongoDB Atlas cluster (free M0 tier works).
    npm run dev
    ```
 4. Open http://localhost:5173.
+5. Optional — fill the scratch database with players and play history so the boards
+   have something to show:
+   ```bash
+   cd service && node seedDevData.mjs
+   ```
+   It refuses to run unless `dbName` is set to something other than `quiz`.
+
+## Seed and demo scripts
+
+| Script | Purpose |
+|---|---|
+| `service/seedData.js` | The 60 starter quizzes. Applied automatically at boot; only inserts slugs that are missing, so admin edits are never overwritten. |
+| `service/seedDevData.mjs` | Local fixture — demo players with a known password for signing in during development. Refuses to run against `quiz`. |
+| `service/seedDemoPlayers.mjs` | The live site's 18 fictional players. Requires an explicit `--db` and `--apply`; passwords are hashes of discarded random bytes, so the accounts cannot be signed into. `--purge` removes them. |
+
+```bash
+node seedDemoPlayers.mjs --db quiz            # preview, writes nothing
+node seedDemoPlayers.mjs --db quiz --apply    # write
+node seedDemoPlayers.mjs --db quiz --purge    # remove
+```
 
 ## Deployment
 
