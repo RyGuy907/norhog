@@ -234,6 +234,24 @@ if (!APPLY) {
 await db.collection('users').deleteMany({ email: demoEmail });
 await db.collection('scores').deleteMany({ user: demoEmail });
 
+// Display names are unique case-insensitively. Purging only clears this script's
+// own accounts, so a name held by anyone else — a real signup, or the local
+// seedDevData fixture — would otherwise surface as a bulk-write dump rather than
+// something readable.
+const taken = await db
+  .collection('users')
+  .find({ nameLower: { $in: players.map((p) => p.nameLower) } })
+  .project({ _id: 0, email: 1, displayName: 1 })
+  .toArray();
+
+if (taken.length) {
+  console.error(`\nAborted: ${taken.length} display name(s) are already in use by other accounts:`);
+  for (const t of taken) console.error(`  ${t.displayName}  (${t.email})`);
+  console.error('\nRemove or rename those accounts, or edit NAMES in this script.\n');
+  await client.close();
+  process.exit(1);
+}
+
 const userDocs = await Promise.all(players.map(async (p) => ({
   email: p.email,
   displayName: p.displayName,

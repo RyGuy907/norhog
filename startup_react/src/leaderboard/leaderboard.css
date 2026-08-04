@@ -15,6 +15,34 @@
   overflow: hidden;
 }
 
+/* The board lists every player, so cap the visible height and scroll. Roughly
+   eleven rows plus the pinned header, which keeps it about level with the Most
+   Played panel beside it. */
+.leaderboard-scroll {
+  max-height: 560px;
+  overflow-y: auto;
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+}
+
+/* Both the rounding and the shadow move to the wrapper, and border-collapse has
+   to become `separate` — a collapsed table cannot hold a sticky header, and the
+   base rule's overflow: hidden would clip it. */
+.leaderboard-scroll .table {
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: 0;
+  box-shadow: none;
+  margin-bottom: 0;
+  overflow: visible;
+}
+
+.leaderboard-scroll thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
 /* The Most Played board itself is styled by .quiz-board in App.css, shared with
    the profile page's Favourites board. */
 

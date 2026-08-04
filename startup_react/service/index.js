@@ -183,7 +183,7 @@ apiRouter.delete('/user', verifyAuth, writeLimiter, route(async (req, res) => {
   }
   await DB.deleteUser(req.user.email);
   clearAuthCookie(res);
-  broadcast({ type: 'updateScores', allScores: await DB.getUserTotals(10) });
+  broadcast({ type: 'updateScores', allScores: await DB.getUserTotals(leaderboardLimit) });
   res.status(200).send({ msg: 'Account deleted' });
 }));
 
@@ -377,6 +377,11 @@ apiRouter.post('/quiz-image-url', verifyAuth, verifyAdmin, writeLimiter, route(a
 // A quiz is worth up to 10 points; harder difficulties are worth more.
 const difficultyPoints = { easy: 6, medium: 8, hard: 10 };
 
+// The leaderboard shows everyone rather than a top ten, so the page can scroll
+// through the full standings. Still bounded, because this payload is also
+// broadcast to every open socket on each score submission.
+const leaderboardLimit = 200;
+
 // In-flight quiz attempts, keyed by a single-use token. The server records
 // when play actually started so elapsed time can't be claimed by the client.
 const attempts = new Map();
@@ -497,7 +502,7 @@ apiRouter.post('/attempt/finish', optionalAuth, writeLimiter, route(async (req, 
     date: new Date().toISOString(),
   });
 
-  broadcast({ type: 'updateScores', allScores: await DB.getUserTotals(10) });
+  broadcast({ type: 'updateScores', allScores: await DB.getUserTotals(leaderboardLimit) });
 
   res.status(200).send({
     answers,
@@ -531,7 +536,7 @@ apiRouter.get('/scores', route(async (req, res) => {
     );
     return res.status(200).send({ easy, medium, hard });
   }
-  res.status(200).send(await DB.getUserTotals(10));
+  res.status(200).send(await DB.getUserTotals(leaderboardLimit));
 }));
 
 apiRouter.get('/scores/best', verifyAuth, route(async (req, res) => {

@@ -94,7 +94,7 @@ export function Leaderboard() {
       <h1>Leaderboard</h1>
       <div className="row g-4">
         <div className="col-lg-7">
-          <div className="table-responsive">
+          <div className="table-responsive leaderboard-scroll">
             <table className="table table-striped">
               <thead className="table-dark">
                 <tr>
@@ -115,7 +115,7 @@ export function Leaderboard() {
             {popular.length === 0 ? (
               <p className="quiz-board-empty">No quizzes have been played yet.</p>
             ) : (
-              <div className="quiz-board-grid">
+              <div className="quiz-board-grid quiz-board-grid-featured">
                 {popular.map((quiz) => (
                   <QuizCard
                     key={quiz.slug}
