@@ -142,12 +142,27 @@ fieldset.difficulty label.selected {
 }
 
 /* Game controls */
+/* Rides along at the top of the viewport during a run, so the answer box, the
+   clock and the score stay reachable while scrolling the question list. Without
+   this the questions and the input are at opposite ends of the page, which on a
+   phone means scrolling up and back for every single answer.
+   Nothing above this in the tree clips overflow and the site header does not
+   stick, so top: 0 is free. The negative side margins cancel the container's
+   12px gutter so the background reaches the page edges instead of letting rows
+   slide past in the margin. */
 .game-bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
-  margin-bottom: 16px;
+  background-color: var(--parchment);
+  border-bottom: 1px solid var(--line);
+  box-shadow: 0 3px 8px rgba(18, 38, 58, 0.08);
+  margin: 0 -12px 16px;
+  padding: 10px 12px;
 }
 
 #timer, #score {
@@ -179,12 +194,25 @@ fieldset.difficulty label.selected {
     font-size: 1.4rem;
   }
 
+  /* Two rows rather than three now that the bar is pinned: clock and score share
+     the first, answer box and End share the second. Wrapping the input and the
+     button onto separate full-width rows would leave a sticky bar tall enough to
+     cover a quarter of a phone screen.
+     The order matches the DOM, so the visual order and the tab order agree. */
+  /* Basis well under the space left by the End button, so subpixel rounding
+     cannot tip it onto a third row — it grows to fill whatever remains. */
   #answerbox {
-    flex: 1 1 100%;
+    flex: 1 1 50%;
+    min-width: 0;
   }
 
   .quiz-btn {
     width: 100%;
+  }
+
+  .game-bar .quiz-btn {
+    width: auto;
+    flex: 0 0 auto;
   }
 }
 
