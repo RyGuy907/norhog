@@ -36,7 +36,7 @@ export const emptyQuizForm = () => ({
   image: '',
   description: '',
   instructions: '',
-  timeLimits: { easy: 120, medium: 180, hard: 240 },
+  timeLimits: { easy: 300, medium: 480, hard: 600 },
   difficulties: {
     easy: [emptyEntry()],
     medium: [emptyEntry()],
@@ -49,7 +49,7 @@ export const emptyQuizForm = () => ({
 export function QuizForm({ initial, slugLocked, allowUpload, submitLabel, errorMsg, onSave, onCancel }) {
   const [form, setForm] = useState(() => ({
     ...initial,
-    timeLimits: { easy: 120, medium: 180, hard: 240, ...initial.timeLimits },
+    timeLimits: { easy: 300, medium: 480, hard: 600, ...initial.timeLimits },
     difficulties: toFormDifficulties(initial.difficulties),
   }));
   const [uploading, setUploading] = useState(false);

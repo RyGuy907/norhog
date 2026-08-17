@@ -47,9 +47,11 @@ const NAMES = [
 
 const DIFFICULTIES = ['easy', 'medium', 'hard'];
 const POINTS = { easy: 6, medium: 8, hard: 10 };
-const LIMITS = { easy: 120, medium: 180, hard: 240 };
-// Seconds a person plausibly spends per question at each difficulty.
-const PACE = { easy: 6.5, medium: 9, hard: 12 };
+const LIMITS = { easy: 300, medium: 480, hard: 600 };
+// Seconds a person plausibly spends per question at each difficulty. Well inside
+// the limits above, which are deliberately generous — a board where every run
+// finished near the buzzer would look manufactured.
+const PACE = { easy: 11, medium: 16, hard: 22 };
 
 // Deterministic PRNG: re-running produces the same fixture instead of drifting,
 // and a preview matches what --apply will write.

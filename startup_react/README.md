@@ -1,6 +1,6 @@
 # Norhog — History Quiz App
 
-Norhog is a full-stack quiz web application where users race a 60-second clock to answer
+Norhog is a full-stack quiz web application where users race the clock to answer
 history questions, then compete for spots on a live leaderboard.
 
 **Live demo:** [norhog.com](https://norhog.com)
@@ -16,7 +16,7 @@ history questions, then compete for spots on a live leaderboard.
 ## Features
 
 - **Timed quizzes** — three difficulty levels (easy/medium/hard) of fill-in-the-blank
-  history questions, each with its own time limit (2/3/4 minutes by default); type a
+  history questions, each with its own time limit (5/8/10 minutes by default); type a
   correct answer and it's revealed instantly.
 - **Admin quiz builder** — quizzes live in the database, not the code. Admins get a
   quiz manager UI to create, edit, and delete quizzes: title, description, image,

@@ -241,7 +241,7 @@ apiRouter.get('/quiz/:slug/full', verifyAuth, verifyAdmin, route(async (req, res
 }));
 
 // Validate and sanitize a quiz payload. Returns { quiz } or { error }.
-const defaultTimeLimits = { easy: 120, medium: 180, hard: 240 };
+const defaultTimeLimits = { easy: 300, medium: 480, hard: 600 };
 
 const maxQuestionsPerLevel = 100;
 
