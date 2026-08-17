@@ -133,6 +133,11 @@ main h2 {
   .brand {
     gap: 8px;
   }
+
+  .header-bar {
+    justify-content: center;
+    padding: 12px;
+  }
 }
 
 .brand h1 {
@@ -175,6 +180,33 @@ main h2 {
 
 .menu li a.active {
   color: var(--gold);
+}
+
+/* Laid out in a row the nav needs ~377px, against 335px of content width on a
+   375px phone, so the last item was being clipped mid-word — and an admin's
+   fifth item made it worse. Tightening the padding and letter-spacing gets four
+   items onto one line, and wrapping catches the rest rather than letting them
+   run off the edge.
+   This has to sit after the base .menu rules above: it matches at the same
+   specificity, so an earlier media query would simply lose to them. */
+@media (max-width: 575px) {
+  .menu {
+    flex-wrap: wrap;
+    justify-content: center;
+    row-gap: 4px;
+  }
+
+  .menu li a {
+    padding: 6px 9px;
+    letter-spacing: 0.03em;
+  }
+
+  /* Site navigation is not useful mid-run, and on a phone the keyboard is
+     already claiming half the screen — so hand those pixels to the questions.
+     The quiz page adds this class while a run is in progress. */
+  body.quiz-running .header {
+    display: none;
+  }
 }
 
 /* ---- Footer ------------------------------------------------------------ */

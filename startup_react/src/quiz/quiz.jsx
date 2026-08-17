@@ -263,6 +263,42 @@ export function Quiz() {
     }
   };
 
+  // Marks the document while a run is in progress so the stylesheet can hide the
+  // site nav on a phone. The class is removed on unmount too, so leaving the page
+  // mid-run cannot strand it.
+  useEffect(() => {
+    if (!gameInfo) {
+      return undefined;
+    }
+    document.body.classList.add('quiz-running');
+    return () => document.body.classList.remove('quiz-running');
+  }, [gameInfo]);
+
+  // iOS shrinks the visual viewport when the keyboard opens but leaves the layout
+  // viewport at full height, and sticky positioning follows the layout viewport —
+  // so `top: 0` resolves to a point hidden behind the keyboard and the bar stops
+  // tracking the visible area. visualViewport.offsetTop is the gap between the
+  // two, so feeding it into the bar's `top` keeps it against the visible edge.
+  // Android honours interactive-widget=resizes-content instead, which keeps this
+  // offset at 0 there.
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!gameInfo || !viewport) {
+      return undefined;
+    }
+    const sync = () => {
+      document.documentElement.style.setProperty('--keyboard-offset', `${Math.max(0, viewport.offsetTop)}px`);
+    };
+    sync();
+    viewport.addEventListener('resize', sync);
+    viewport.addEventListener('scroll', sync);
+    return () => {
+      viewport.removeEventListener('resize', sync);
+      viewport.removeEventListener('scroll', sync);
+      document.documentElement.style.removeProperty('--keyboard-offset');
+    };
+  }, [gameInfo]);
+
   useEffect(() => {
     if (!isTimerRunning) {
       return;
