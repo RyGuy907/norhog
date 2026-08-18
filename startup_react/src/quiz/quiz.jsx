@@ -420,7 +420,7 @@ export function Quiz() {
                 ))}
               </fieldset>
 
-              <button className="quiz-btn" onClick={PlayClick}>Play</button>
+              <button className="quiz-btn quiz-btn-play" onClick={PlayClick}>Play</button>
             </>
           )}
           {gameInfo && (

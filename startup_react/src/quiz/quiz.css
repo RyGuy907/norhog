@@ -115,8 +115,10 @@ fieldset.difficulty input[type='radio'] {
 }
 
 fieldset.difficulty label {
-  padding: 7px 18px;
-  border: 1px solid var(--line);
+  /* 2px so the difficulty colour actually reads as an outline; the padding drops
+     by 1px to keep the pill the same overall size it was at 1px. */
+  padding: 6px 17px;
+  border: 2px solid var(--line);
   border-radius: 999px;
   background-color: var(--card);
   font-weight: 600;
@@ -124,8 +126,10 @@ fieldset.difficulty label {
   transition: background-color 0.15s, color 0.15s, border-color 0.15s;
 }
 
+/* A tint rather than a border colour, so hovering does not overwrite the
+   difficulty's own outline. */
 fieldset.difficulty label:hover {
-  border-color: var(--gold);
+  background-color: rgba(18, 38, 58, 0.05);
 }
 
 /* The radios themselves are visually hidden, so the label has to carry the
@@ -135,9 +139,42 @@ fieldset.difficulty input[type='radio']:focus-visible + label {
   outline-offset: 2px;
 }
 
-fieldset.difficulty label.selected {
-  background-color: var(--navy);
-  border-color: var(--navy);
+/* Green / amber / red for easy / medium / hard: outlined while unselected, and
+   filled once chosen. These are the palette's existing accents rather than new
+   colours, so the pills read in the same family as the green and brick already
+   used to flash correct and missed answers.
+   Keyed off the label's `for`, which already carries the level, so the markup
+   needs no extra class. */
+fieldset.difficulty label[for='radio-easy'] {
+  border-color: var(--green);
+}
+
+fieldset.difficulty label[for='radio-medium'] {
+  border-color: var(--gold);
+}
+
+fieldset.difficulty label[for='radio-hard'] {
+  border-color: var(--brick);
+}
+
+fieldset.difficulty label.selected[for='radio-easy'] {
+  background-color: var(--green);
+  border-color: var(--green);
+  color: #fff;
+}
+
+/* Navy on gold rather than white: white on this gold is about 3.4:1, under the
+   4.5:1 needed at this size, and dark-on-amber is the conventional treatment
+   anyway. It also matches .btn-secondary, which is already gold with navy text. */
+fieldset.difficulty label.selected[for='radio-medium'] {
+  background-color: var(--gold);
+  border-color: var(--gold);
+  color: var(--navy);
+}
+
+fieldset.difficulty label.selected[for='radio-hard'] {
+  background-color: var(--brick);
+  border-color: var(--brick);
   color: #fff;
 }
 
@@ -251,6 +288,20 @@ fieldset.difficulty label.selected {
 
 .quiz-btn:hover {
   background-color: var(--navy-light);
+}
+
+/* Play is the primary action of the page, so it takes the theme's accent
+   treatment - the same gold-with-navy-text pairing .btn-secondary uses site-wide
+   - while End stays navy as the secondary control. Both rules must follow the
+   .quiz-btn ones above: they match at equal specificity, so order decides. */
+.quiz-btn-play {
+  background-color: var(--gold);
+  color: var(--navy);
+}
+
+.quiz-btn-play:hover {
+  background-color: var(--gold-dark);
+  color: #fff;
 }
 
 /* Question/answer table */
