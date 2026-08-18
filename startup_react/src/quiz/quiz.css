@@ -290,18 +290,18 @@ fieldset.difficulty label.selected[for='radio-hard'] {
   background-color: var(--navy-light);
 }
 
-/* Play is the primary action of the page, so it takes the theme's accent
-   treatment - the same gold-with-navy-text pairing .btn-secondary uses site-wide
-   - while End stays navy as the secondary control. Both rules must follow the
+/* Play is the primary action of the page and gets its own colour. It cannot be
+   gold, green or brick without echoing one of the difficulty pills directly
+   above it, nor navy without matching End and every other button, so it takes
+   the teal added to the palette for exactly this. Both rules must follow the
    .quiz-btn ones above: they match at equal specificity, so order decides. */
 .quiz-btn-play {
-  background-color: var(--gold);
-  color: var(--navy);
+  background-color: var(--teal);
+  color: #fff;
 }
 
 .quiz-btn-play:hover {
-  background-color: var(--gold-dark);
-  color: #fff;
+  background-color: var(--teal-dark);
 }
 
 /* Question/answer table */

@@ -7,9 +7,26 @@ import { fetchQuizStatuses } from './quizCard';
 //
 // `quizzes` is the pool to choose from, so each page can decide what is eligible
 // — the quiz page passes everything except the one you are already on.
+const MODES = ['any', 'unplayed', 'played'];
+const MODE_KEY = 'norhog.randomMode';
+
+// Persisted because every press navigates away and remounts this component —
+// without it the selector reset to "any" after each use, so choosing "unplayed"
+// twice in a row meant re-picking it every time.
+// Validated on read: localStorage is user-writable, and an unrecognised value
+// would otherwise filter the pool down to nothing.
+const storedMode = () => {
+  try {
+    const saved = localStorage.getItem(MODE_KEY);
+    return MODES.includes(saved) ? saved : 'any';
+  } catch {
+    return 'any';
+  }
+};
+
 export function RandomQuiz({ quizzes }) {
   const navigate = useNavigate();
-  const [mode, setMode] = useState('any');
+  const [mode, setMode] = useState(storedMode);
   // Slugs the signed-in user has finished. Guests get an empty set, which makes
   // "unplayed" behave as "any" for them — accurate, since they have played none.
   const [played, setPlayed] = useState(new Set());
@@ -72,6 +89,12 @@ export function RandomQuiz({ quizzes }) {
         onChange={(event) => {
           setMode(event.target.value);
           setMessage('');
+          try {
+            localStorage.setItem(MODE_KEY, event.target.value);
+          } catch {
+            // Private browsing can refuse writes; the picker still works, it
+            // just will not remember the choice.
+          }
         }}
       >
         <option value="any">Any quiz</option>
