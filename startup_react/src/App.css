@@ -300,6 +300,52 @@ button, .btn {
   border-bottom: 2px solid var(--gold);
 }
 
+/* Random picker pinned to the bottom of a Recommended Quizzes box. The top
+   border separates it from the list above; padding matches the box's header. */
+.rec-random {
+  align-items: center;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 16px;
+}
+
+/* Deliberately not using Bootstrap's .btn class: `.rec-box .btn` forces
+   width: 100% and a transparent background for the quiz links in the list above,
+   and at (0,2,0) it outranks this rule. Styling a bare button sidesteps that
+   instead of escalating specificity. */
+.rec-random-btn {
+  background-color: var(--gold);
+  border: none;
+  border-radius: 8px;
+  color: var(--navy);
+  flex: 0 0 auto;
+  font-weight: 600;
+  padding: 7px 18px;
+}
+
+.rec-random-btn:hover {
+  background-color: var(--gold-dark);
+  color: #fff;
+}
+
+/* min-width: 0 lets the select shrink inside the flex row instead of forcing the
+   button onto its own line in a narrow sidebar. */
+.rec-random-select {
+  flex: 1 1 7rem;
+  font-size: 0.9rem;
+  min-width: 0;
+  width: auto;
+}
+
+.rec-random-msg {
+  color: var(--muted);
+  flex: 1 1 100%;
+  font-size: 0.85rem;
+  margin: 2px 0 0;
+}
+
 .rec-box .list-group {
   padding: 8px 16px 12px;
 }

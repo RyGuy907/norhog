@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { QuizCard } from '../quizCard';
+import { RandomQuiz } from '../randomQuiz';
 import { shuffle } from '../shuffle';
 import { usePageTitle } from '../usePageTitle';
 import './profile.css';
@@ -393,6 +394,7 @@ export function Profile() {
                 </li>
               ))}
             </ul>
+            <RandomQuiz quizzes={quizzes} />
           </div>
         </div>
       </div>

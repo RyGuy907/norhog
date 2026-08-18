@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { shuffle } from '../shuffle';
 import { normalize } from '../answerMatch';
 import { lookup } from '../answerLock';
+import { RandomQuiz } from '../randomQuiz';
 import { usePageTitle } from '../usePageTitle';
 import './quiz.css';
 
@@ -509,6 +510,7 @@ export function Quiz() {
                   </li>
                 ))}
               </ul>
+              <RandomQuiz quizzes={allQuizzes.filter((entry) => entry.slug !== slug)} />
             </div>
           </div>
         )}

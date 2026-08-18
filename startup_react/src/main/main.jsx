@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { shuffle } from '../shuffle';
 import { usePageTitle } from '../usePageTitle';
 import { QuizCard, fetchQuizStatuses } from '../quizCard';
+import { RandomQuiz } from '../randomQuiz';
 import './main.css';
 
 // Escapes only what could break out of a quoted CSS url(). encodeURI would
@@ -82,6 +83,7 @@ export function Main() {
                 </li>
               ))}
             </ul>
+            <RandomQuiz quizzes={quizzes} />
           </div>
 
           <div className="suggest-box">
