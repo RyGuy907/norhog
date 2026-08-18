@@ -14,6 +14,16 @@
   flex: 0 1 220px;
 }
 
+/* The shared picker carries the chrome it needs inside a Recommended box - a top
+   border and padding. In this toolbar it is just another control in the row, so
+   both are dropped. Compound selector because .rec-random in App.css matches at
+   the same specificity and would otherwise win on order. */
+.rec-random.gallery-random {
+  border-top: none;
+  flex: 0 1 auto;
+  padding: 0;
+}
+
 .gallery-count {
   color: var(--muted);
   font-size: 0.9rem;

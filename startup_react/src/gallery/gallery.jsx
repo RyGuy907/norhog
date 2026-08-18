@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { QuizCard, fetchQuizStatuses } from '../quizCard';
 import { usePageTitle } from '../usePageTitle';
 import '../main/main.css';
+import { RandomQuiz } from '../randomQuiz';
 import './gallery.css';
 
 const sorts = {
@@ -75,6 +76,9 @@ export function Gallery() {
             <option value={key} key={key}>{label}</option>
           ))}
         </select>
+        {/* Draws from every quiz rather than the filtered view, so it behaves
+            the same here as in the Recommended boxes. */}
+        <RandomQuiz quizzes={quizzes} className="gallery-random" />
       </div>
 
       {loading && <p>Loading quizzes...</p>}

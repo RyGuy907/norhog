@@ -293,15 +293,15 @@ fieldset.difficulty label.selected[for='radio-hard'] {
 /* Play is the primary action of the page and gets its own colour. It cannot be
    gold, green or brick without echoing one of the difficulty pills directly
    above it, nor navy without matching End and every other button, so it takes
-   the teal added to the palette for exactly this. Both rules must follow the
+   the plum added to the palette for exactly this. Both rules must follow the
    .quiz-btn ones above: they match at equal specificity, so order decides. */
 .quiz-btn-play {
-  background-color: var(--teal);
+  background-color: var(--plum);
   color: #fff;
 }
 
 .quiz-btn-play:hover {
-  background-color: var(--teal-dark);
+  background-color: var(--plum-dark);
 }
 
 /* Question/answer table */

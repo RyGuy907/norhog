@@ -24,7 +24,7 @@ const storedMode = () => {
   }
 };
 
-export function RandomQuiz({ quizzes }) {
+export function RandomQuiz({ quizzes, className = '' }) {
   const navigate = useNavigate();
   const [mode, setMode] = useState(storedMode);
   // Slugs the signed-in user has finished. Guests get an empty set, which makes
@@ -78,7 +78,7 @@ export function RandomQuiz({ quizzes }) {
   };
 
   return (
-    <div className="rec-random">
+    <div className={`rec-random${className ? ` ${className}` : ''}`}>
       <button type="button" className="rec-random-btn" onClick={goRandom}>
         Random
       </button>

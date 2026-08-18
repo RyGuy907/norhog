@@ -10,11 +10,12 @@
   --gold-dark: #a8861d;
   --brick: #a3402c;
   --green: #2e7d46;
-  /* Play needs a hue that is not any of the three difficulty pills (green, gold,
-     brick) and not the navy shared by every other button. Teal is the closest
-     free slot in this muted, earthy register; 5.9:1 against white. */
-  --teal: #1f6f6b;
-  --teal-dark: #175450;
+  /* Play needs a hue that is none of the three difficulty pills (green, gold,
+     brick) and not the navy shared by every other button. Teal was tried first
+     and sat too close to the easy green; plum clears all four outright and suits
+     the manuscript palette. 8.2:1 against white. */
+  --plum: #6d3f63;
+  --plum-dark: #56304e;
   --line: #e2dccc;
   --shadow: 0 2px 10px rgba(18, 38, 58, 0.08);
   --shadow-hover: 0 6px 18px rgba(18, 38, 58, 0.16);
