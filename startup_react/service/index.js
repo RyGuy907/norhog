@@ -622,11 +622,16 @@ app.use((_req, res) => {
 
 async function seedStarterQuizzes() {
   // Seed starter quizzes that aren't in the database yet (never overwrites edits).
-  for (const quiz of seedQuizzes) {
-    if (!(await DB.getQuiz(quiz.slug))) {
-      await DB.addQuiz(quiz);
-      console.log(`Seeded quiz: ${quiz.slug}`);
-    }
+  // One query for the existing slugs rather than a lookup per quiz: at 150
+  // starters that is a single round trip instead of 150.
+  const present = new Set((await DB.getQuizzes()).map((quiz) => quiz.slug));
+  const missing = seedQuizzes.filter((quiz) => !present.has(quiz.slug));
+  for (const quiz of missing) {
+    await DB.addQuiz(quiz);
+    console.log(`Seeded quiz: ${quiz.slug}`);
+  }
+  if (missing.length) {
+    console.log(`Seeding complete: ${missing.length} quizzes added`);
   }
 }
 
@@ -657,9 +662,16 @@ function start() {
 // listened on the port. The service looked healthy — pm2 reported it online and
 // the database connected, because that is an import side effect — while every
 // request through Caddy returned 502.
+// Listen first, then seed in the background. Seeding used to be awaited here,
+// which was invisible while it was a no-op — but the moment it had 90 quizzes to
+// insert it delayed app.listen() past the deploy script's smoke check, the
+// health probe found nothing on the port, and the release was rolled back.
+// Serving does not depend on seeding, so it must not gate the port opening.
 if (!process.env.VITEST) {
-  await seedStarterQuizzes();
   start();
+  seedStarterQuizzes().catch((err) => {
+    console.log(`Seeding failed: ${err?.message}`);
+  });
 }
 
 // Test-only helper: the limiters hold per-process counters that outlive an
