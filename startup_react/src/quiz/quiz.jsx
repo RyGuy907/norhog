@@ -366,6 +366,13 @@ export function Quiz() {
     return <main className="container">Loading...</main>;
   }
 
+  // Twenty questions read better as two ten-row tables than one long scroll.
+  // Splitting at the halfway point keeps a short custom quiz in a single table.
+  const halfSize = Math.ceil(questions.length / 2);
+  const questionColumns = questions.length > 10
+    ? [questions.slice(0, halfSize), questions.slice(halfSize)]
+    : [questions];
+
   return (
     <main className="container">
       <div className="row">
@@ -421,7 +428,7 @@ export function Quiz() {
                 ))}
               </fieldset>
 
-              <button className="quiz-btn quiz-btn-play" onClick={PlayClick}>Play</button>
+              <button className="quiz-btn" onClick={PlayClick}>Play</button>
             </>
           )}
           {gameInfo && (
@@ -478,22 +485,26 @@ export function Quiz() {
             </div>
           )}
 
-          <table className="answer-table">
-            <thead>
-              <tr>
-                <th className="question">Question</th>
-                <th className="answerhead">Answer</th>
-              </tr>
-            </thead>
-            <tbody>
-              {questions.map((entry, index) => (
-                <tr key={index}>
-                  <td className="question">{entry.question}</td>
-                  {answerCell(index)}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="answer-tables">
+            {questionColumns.map((column, columnIndex) => (
+              <table className="answer-table" key={columnIndex}>
+                <thead>
+                  <tr>
+                    <th className="question">Question</th>
+                    <th className="answerhead">Answer</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {column.map((entry, i) => (
+                    <tr key={columnIndex * halfSize + i}>
+                      <td className="question">{entry.question}</td>
+                      {answerCell(columnIndex * halfSize + i)}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ))}
+          </div>
 
         </div>
 

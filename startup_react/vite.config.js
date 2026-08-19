@@ -10,6 +10,8 @@ export default defineConfig({
     include: ['src/**/*.test.{js,jsx}'],
   },
   server: {
+    // Default Vite port unless the environment assigns one (e.g. when 5173 is taken).
+    port: Number(process.env.PORT) || 5173,
     proxy: {
       '/api': 'http://localhost:4000',
       '/ws': {

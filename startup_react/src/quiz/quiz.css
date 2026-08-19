@@ -290,21 +290,27 @@ fieldset.difficulty label.selected[for='radio-hard'] {
   background-color: var(--navy-light);
 }
 
-/* Play is the primary action of the page and gets its own colour. It cannot be
-   gold, green or brick without echoing one of the difficulty pills directly
-   above it, nor navy without matching End and every other button, so it takes
-   the plum added to the palette for exactly this. Both rules must follow the
-   .quiz-btn ones above: they match at equal specificity, so order decides. */
-.quiz-btn-play {
-  background-color: var(--plum);
-  color: #fff;
-}
-
-.quiz-btn-play:hover {
-  background-color: var(--plum-dark);
-}
-
 /* Question/answer table */
+/* With twenty questions a run renders as two ten-row tables. Side by side on a
+   desktop, stacked on narrower screens where two columns would crush the text. */
+.answer-tables {
+  display: flex;
+  flex-direction: column;
+}
+
+@media (min-width: 992px) {
+  .answer-tables {
+    flex-direction: row;
+    gap: 18px;
+    align-items: flex-start;
+  }
+
+  .answer-tables .answer-table {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+}
+
 .answer-table {
   width: 100%;
   border-collapse: collapse;

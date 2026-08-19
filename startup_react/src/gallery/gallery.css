@@ -20,8 +20,17 @@
    the same specificity and would otherwise win on order. */
 .rec-random.gallery-random {
   border-top: none;
-  flex: 0 1 auto;
+  flex: 0 0 auto;
   padding: 0;
+}
+
+/* In the sidebar boxes the select stretches to fill the row, but its 7rem flex
+   basis is wider than the space the toolbar reserves for it, so it wrapped under
+   the button. Here it sizes to its content, keeping button + dropdown on one
+   line; when the row is tight the whole picker wraps below as a single unit
+   instead of squeezing the search bar. */
+.rec-random.gallery-random .rec-random-select {
+  flex: 0 0 auto;
 }
 
 .gallery-count {
