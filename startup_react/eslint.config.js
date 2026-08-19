@@ -65,4 +65,11 @@ export default [
       ],
     },
   },
+  {
+    // Build config at the repo root runs in Node, not the browser, so it needs
+    // node globals — the block above would otherwise leave `process` undefined.
+    // Last in the list because flat config lets later blocks win.
+    files: ['*.config.js'],
+    languageOptions: { globals: globals.node },
+  },
 ]
