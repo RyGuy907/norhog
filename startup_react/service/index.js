@@ -260,6 +260,22 @@ function safeImageUrl(value) {
   }
 }
 
+// object-position is written straight into an inline style, so accept only the
+// CSS keywords and percentages a focal point actually needs — never arbitrary
+// text, which could smuggle in url() or other declarations.
+function safeObjectPosition(value) {
+  const raw = asString(value, 40);
+  if (!raw) {
+    return '';
+  }
+  const tokens = raw.trim().toLowerCase().split(/\s+/);
+  if (tokens.length < 1 || tokens.length > 2) {
+    return '';
+  }
+  const ok = /^(left|right|top|bottom|center|-?\d{1,3}(\.\d+)?%)$/;
+  return tokens.every((t) => ok.test(t)) ? tokens.join(' ') : '';
+}
+
 function validateQuiz(body) {
   const slug = asString(body.slug, 100) || '';
   const title = asString(body.title, 120) || '';
@@ -314,6 +330,8 @@ function validateQuiz(body) {
       slug,
       title,
       image: safeImageUrl(body.image),
+      imagePosition: safeObjectPosition(body.imagePosition),
+      imageCaption: asString(body.imageCaption, 300) || '',
       description: asString(body.description, 500) || '',
       instructions: asString(body.instructions, 500) || '',
       timeLimits,

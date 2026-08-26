@@ -11,7 +11,10 @@ export function QuizCard({ quiz, status, meta }) {
   const starred = status?.perfectCount === 3;
   // Tall images are cropped from the top so the subject's head stays in
   // frame; measured on load so any uploaded image is handled automatically.
+  // A quiz can override that with imagePosition (a CSS object-position) when
+  // the automatic crop puts the subject behind the title band or off-frame.
   const [portrait, setPortrait] = useState(false);
+  const focal = quiz.imagePosition || '';
 
   return (
     <Link to={`/quiz/${quiz.slug}`} className={`quiz-card${completed ? ' completed' : ''}`}>
@@ -21,7 +24,9 @@ export function QuizCard({ quiz, status, meta }) {
         <img
           src={quiz.image}
           alt=""
-          className={`quiz-card-image${portrait ? ' portrait' : ''}`}
+          loading="lazy"
+          className={`quiz-card-image${!focal && portrait ? ' portrait' : ''}`}
+          style={focal ? { objectPosition: focal } : undefined}
           onLoad={(e) => setPortrait(e.target.naturalHeight > e.target.naturalWidth)}
         />
       )}

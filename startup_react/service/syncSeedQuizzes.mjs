@@ -12,8 +12,8 @@
 // checkout whose dbConfig.json deliberately points at a scratch database,
 // without editing that file and risking it being left pointing at production.
 //
-// Only quiz content is touched (title, image, description, instructions,
-// timeLimits, difficulties). Scores, users, suggestions, and quizzes created
+// Only quiz content is touched (title, image, imagePosition, imageCaption,
+// description, instructions, timeLimits, difficulties). Scores, users, suggestions, and quizzes created
 // through the admin UI (slugs not in seedData.js) are left alone.
 import fs from 'fs';
 import { MongoClient } from 'mongodb';
@@ -51,6 +51,8 @@ for (const quiz of seedQuizzes) {
   ) && JSON.stringify(existing.timeLimits) === JSON.stringify(quiz.timeLimits)
     && existing.title === quiz.title
     && existing.image === quiz.image
+    && (existing.imagePosition || '') === (quiz.imagePosition || '')
+    && (existing.imageCaption || '') === (quiz.imageCaption || '')
     && existing.description === quiz.description
     && existing.instructions === quiz.instructions;
   if (same) {
@@ -63,6 +65,8 @@ for (const quiz of seedQuizzes) {
       { $set: {
         title: quiz.title,
         image: quiz.image,
+        imagePosition: quiz.imagePosition || '',
+        imageCaption: quiz.imageCaption || '',
         description: quiz.description,
         instructions: quiz.instructions,
         timeLimits: quiz.timeLimits,

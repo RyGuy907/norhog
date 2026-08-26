@@ -34,6 +34,8 @@ export const emptyQuizForm = () => ({
   slug: '',
   title: '',
   image: '',
+  imagePosition: '',
+  imageCaption: '',
   description: '',
   instructions: '',
   timeLimits: { easy: 360, medium: 480, hard: 600 },
@@ -202,7 +204,40 @@ export function QuizForm({ initial, slugLocked, allowUpload, submitLabel, errorM
           value={form.image}
           onChange={(e) => setField('image', e.target.value)}
         />
-        {form.image && <img src={form.image} alt="Quiz preview" className="image-preview" />}
+        {form.image && (
+          <img
+            src={form.image}
+            alt="Quiz preview"
+            className="image-preview"
+            style={form.imagePosition ? { objectPosition: form.imagePosition } : undefined}
+          />
+        )}
+      </div>
+
+      <div className="mb-3">
+        <label className="form-label" htmlFor="quiz-image-position">
+          Card focal point (optional)
+        </label>
+        <input
+          id="quiz-image-position"
+          className="form-control"
+          placeholder="e.g. 50% 25% — which part of the picture the menu card keeps"
+          value={form.imagePosition}
+          onChange={(e) => setField('imagePosition', e.target.value)}
+        />
+      </div>
+
+      <div className="mb-3">
+        <label className="form-label" htmlFor="quiz-image-caption">
+          Picture caption (optional)
+        </label>
+        <input
+          id="quiz-image-caption"
+          className="form-control"
+          placeholder="What the picture shows, and its artist or source"
+          value={form.imageCaption}
+          onChange={(e) => setField('imageCaption', e.target.value)}
+        />
       </div>
 
       {['easy', 'medium', 'hard'].map((level) => (

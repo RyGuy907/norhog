@@ -379,6 +379,9 @@ export function Quiz() {
         <div className="col-md-8">
           <h2>{quiz.title}</h2>
           {quiz.image && <img src={quiz.image} alt={quiz.title} className="quiz-header-image" />}
+          {quiz.image && quiz.imageCaption && (
+            <p className="quiz-image-caption">{quiz.imageCaption}</p>
+          )}
           {quiz.description && <p>{quiz.description}</p>}
           {quiz.instructions && <p>{quiz.instructions}</p>}
           <h4>Fastest Times <span className="difficulty-tag">({difficulty})</span></h4>
