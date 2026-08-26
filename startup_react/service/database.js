@@ -248,7 +248,10 @@ export async function deleteSuggestion(id) {
 export function getQuizzes() {
   return quizCollection
     .find()
-    .project({ _id: 0, slug: 1, title: 1, image: 1, description: 1 })
+    // imagePosition rides along because the menu cards crop to 3:2 and need the
+    // focal point to place that crop; without it every tile falls back to the
+    // generic top/centre crop and subjects get cut out of frame.
+    .project({ _id: 0, slug: 1, title: 1, image: 1, imagePosition: 1, description: 1 })
     .sort({ title: 1 })
     .toArray();
 }

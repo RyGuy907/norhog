@@ -5477,8 +5477,8 @@ export const seedQuizzes = [
   {
     slug: 'pompeii',
     title: 'Pompeii',
-    image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Pompeii%20Ruins%20Forum%20%28City%20Business%20Center%29%20%26%20Mt.%20Vesuvius%20%2848440709246%29.jpg?width=900',
-    imageCaption: 'The forum of Pompeii with Vesuvius beyond, the volcano that buried the city in AD 79.',
+    image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Vesuvius%20from%20Pompeii.jpg?width=900',
+    imageCaption: 'The ruins of Pompeii beneath Vesuvius, the volcano that buried the city in AD 79.',
     description: 'A whole town buried in a single day, and uncovered over centuries.',
     instructions: 'Full answers or shortcuts work — correct answers are revealed as you type!',
     timeLimits: { easy: 360, medium: 480, hard: 600 },
@@ -7712,8 +7712,8 @@ export const seedQuizzes = [
   {
     slug: 'imperial-china-2',
     title: 'Imperial China #2',
-    image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Hall%20of%20Supreme%20Harmony%2C%20Forbidden%20City%2C%20Beijing%2C%20with%20tourists.jpg?width=900',
-    imageCaption: 'The Hall of Supreme Harmony in the Forbidden City, Beijing.',
+    image: 'https://commons.wikimedia.org/wiki/Special:FilePath/Chinese%20Architecture%20%28146236471%29.jpeg?width=900',
+    imageCaption: 'The painted eaves and roof guardians of a Chinese imperial hall.',
     description: 'Round two through the dynasties: inventions, voyages, poets and palace intrigue.',
     instructions: 'Full answers or shortcuts work — correct answers are revealed as you type!',
     timeLimits: { easy: 360, medium: 480, hard: 600 },
@@ -11799,8 +11799,8 @@ export const seedQuizzes = [
   {
     slug: 'antebellum-america',
     title: 'Antebellum America',
-    image: 'https://commons.wikimedia.org/wiki/Special:FilePath/George%20Caleb%20Bingham%20-%20The%20County%20Election.jpg?width=900',
-    imageCaption: 'The County Election, George Caleb Bingham\'s picture of frontier democracy, 1852.',
+    image: 'https://commons.wikimedia.org/wiki/Special:FilePath/OakAlleyPlantation.jpg?width=900',
+    imageCaption: 'Oak Alley Plantation, Louisiana, built 1837-1839, framed by its avenue of live oaks.',
     description: 'From the Missouri Compromise to the eve of war — the decades that pulled America apart.',
     instructions: 'Full answers or shortcuts work — correct answers are revealed as you type!',
     timeLimits: { easy: 360, medium: 480, hard: 600 },
