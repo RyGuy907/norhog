@@ -11,18 +11,18 @@ try {
 
 const url = `mongodb+srv://${config.userName}:${encodeURIComponent(config.password)}@${config.hostname}`;
 const client = new MongoClient(url);
-// Defaults to the production database. Set dbName in dbConfig.json to point a
-// local checkout at a scratch database instead — otherwise `npm start` on a
-// laptop reads and writes the same records the live site is serving.
+// Defaults to the production database. A local checkout should set dbName in
+// dbConfig.json to a scratch database, or `npm start` on a laptop will read and
+// write the same records the live site serves.
 const db = client.db(config.dbName || 'quiz');
 const userCollection = db.collection('users');
 const scoreCollection = db.collection('scores');
 const quizCollection = db.collection('quizzes');
 const suggestionCollection = db.collection('suggestions');
 
-// Verify the connection at startup so a bad config fails fast, and enforce
-// uniqueness at the storage layer (the check-then-insert in the register
-// handler is not atomic on its own).
+// Checks the connection at startup so a bad config fails right away. The unique
+// indexes are also created here, since the check-then-insert in the signup
+// handler is not atomic on its own.
 (async function testConnection() {
   try {
     await db.command({ ping: 1 });
@@ -38,9 +38,9 @@ const suggestionCollection = db.collection('suggestions');
   }
 })();
 
-// Every lookup takes a string. Objects (e.g. {$gt: ''} smuggled through a
-// request body, query string, or cookie) would be interpreted by MongoDB as
-// query operators, so they are rejected here as a last line of defense.
+// Every lookup takes a string. MongoDB would read an object such as {$gt: ''}
+// from a request body, query string, or cookie as a query operator, so anything
+// else is rejected here as a second layer behind sanitizeRequest.
 const asKey = (value) => (typeof value === 'string' && value !== '' ? value : null);
 
 export function getUser(email) {
@@ -55,8 +55,8 @@ export function getUserByName(nameLower) {
 }
 
 export function getUserByToken(token) {
-  // Must be a non-empty string: missing tokens would match logged-out users
-  // (token: null), and objects would be treated as query operators.
+  // The token has to be a non-empty string. A missing token would match every
+  // logged-out user (token: null), and an object would act as a query operator.
   const key = asKey(token);
   return key ? userCollection.findOne({ token: key }) : Promise.resolve(null);
 }
@@ -66,7 +66,10 @@ export async function addUser(user) {
 }
 
 export async function updateUser(user) {
-  await userCollection.updateOne({ email: user.email }, { $set: { token: user.token } });
+  await userCollection.updateOne(
+    { email: user.email },
+    { $set: { token: user.token, tokenIssuedAt: user.tokenIssuedAt ?? null } }
+  );
 }
 
 // Account deletion removes the user and everything they created.
@@ -81,9 +84,9 @@ export async function addScore(score) {
   await scoreCollection.insertOne(score);
 }
 
-// Fastest-times board for one quiz + difficulty: only perfect (full-score)
-// runs count, ranked by each user's quickest. Public display names only —
-// emails never leave the server.
+// Fastest-times board for one quiz and difficulty. Only perfect runs count,
+// ranked by each player's quickest. It returns display names only, so emails
+// never leave the server.
 export function getQuizTimes(quiz, difficulty, limit = 10) {
   if (!asKey(quiz) || !asKey(difficulty)) {
     return Promise.resolve([]);
@@ -99,7 +102,7 @@ export function getQuizTimes(quiz, difficulty, limit = 10) {
     .toArray();
 }
 
-// Total points per user: sum of each quiz's best points. Display names only.
+// Total points per player, summing their best points on each quiz. Display names only.
 export function getUserTotals(limit = 10) {
   return scoreCollection
     .aggregate([
@@ -135,7 +138,7 @@ export async function getQuizBestPoints(user, quiz) {
   return best ? best.points : 0;
 }
 
-// One user's best attempt for a quiz + difficulty (highest score, then fastest).
+// One user's best attempt for a quiz and difficulty (highest score, then fastest).
 export function getUserBest(user, quiz, difficulty) {
   if (!asKey(user) || !asKey(quiz) || !asKey(difficulty)) return Promise.resolve(null);
   return scoreCollection.findOne(
@@ -144,7 +147,7 @@ export function getUserBest(user, quiz, difficulty) {
   );
 }
 
-// One user's fastest perfect (full-score) run for a quiz + difficulty.
+// One user's fastest perfect run for a quiz and difficulty.
 export async function getUserBestTime(user, quiz, difficulty) {
   if (!asKey(user) || !asKey(quiz) || !asKey(difficulty)) return null;
   const best = await scoreCollection.findOne(
@@ -181,8 +184,8 @@ export function getUserScores(user) {
     .toArray();
 }
 
-// Rank quizzes by play count and attach the fields a tile needs. Shared by the
-// site-wide board and the per-user one so the two can't drift apart.
+// Ranks quizzes by play count and attaches the fields a quiz tile needs. The
+// site-wide board and the per-player one share it so they stay consistent.
 const playCountPipeline = (limit) => [
   { $group: { _id: '$quiz', plays: { $sum: 1 } } },
   { $sort: { plays: -1, _id: 1 } },
@@ -195,8 +198,8 @@ const playCountPipeline = (limit) => [
       as: 'quiz',
     },
   },
-  // Scores are deleted with their quiz, so an empty lookup should not happen —
-  // but drop it rather than render a card with no title if it ever does.
+  // Scores are deleted along with their quiz, so an empty lookup shouldn't
+  // happen. If one does, it is dropped instead of becoming a card with no title.
   { $match: { 'quiz.0': { $exists: true } } },
   {
     $project: {
@@ -209,14 +212,14 @@ const playCountPipeline = (limit) => [
   },
 ];
 
-// Most-played quizzes across everyone, for the leaderboard's sidebar. One score
-// document is written per finished run, so this counts plays rather than
-// distinct players — and only signed-in runs are recorded, guests play unscored.
+// Most-played quizzes across all players, for the leaderboard sidebar. Each
+// finished run writes one score document, so this counts plays instead of
+// distinct players. Guest runs aren't recorded and don't count.
 export function getPopularQuizzes(limit = 5) {
   return scoreCollection.aggregate(playCountPipeline(limit)).toArray();
 }
 
-// The same board scoped to one player: the quizzes they come back to most.
+// The same board for one player, showing the quizzes they return to most.
 export function getUserFavoriteQuizzes(user, limit = 4) {
   const key = asKey(user);
   if (!key) return Promise.resolve([]);
@@ -237,10 +240,6 @@ export async function addSuggestion(suggestion) {
   await suggestionCollection.insertOne(suggestion);
 }
 
-export function getSuggestion(id) {
-  return suggestionCollection.findOne({ _id: new ObjectId(id) });
-}
-
 export async function deleteSuggestion(id) {
   await suggestionCollection.deleteOne({ _id: new ObjectId(id) });
 }
@@ -248,9 +247,9 @@ export async function deleteSuggestion(id) {
 export function getQuizzes() {
   return quizCollection
     .find()
-    // imagePosition rides along because the menu cards crop to 3:2 and need the
-    // focal point to place that crop; without it every tile falls back to the
-    // generic top/centre crop and subjects get cut out of frame.
+    // imagePosition is included because the menu cards crop images to 3:2 and
+    // use it as the focal point. Without it, tiles fall back to a generic crop
+    // that can cut the subject out of frame.
     .project({ _id: 0, slug: 1, title: 1, image: 1, imagePosition: 1, description: 1 })
     .sort({ title: 1 })
     .toArray();

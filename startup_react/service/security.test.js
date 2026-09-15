@@ -104,4 +104,16 @@ describe('rateLimit', () => {
     expect(runMiddleware(limiter, first).res.statusCode).toBe(429);
     expect(runMiddleware(limiter, second).nextCalled).toBe(true);
   });
+
+  it('shares one counter across case and trailing-slash variants of a path', () => {
+    const limiter = rateLimit({ windowMs: 60_000, max: 1 });
+    runMiddleware(limiter, { ip: '1.2.3.4', baseUrl: '/api', path: '/login' });
+
+    for (const variant of [
+      { baseUrl: '/api', path: '/LOGIN' },
+      { baseUrl: '/API', path: '/Login/' },
+    ]) {
+      expect(runMiddleware(limiter, { ip: '1.2.3.4', ...variant }).res.statusCode).toBe(429);
+    }
+  });
 });

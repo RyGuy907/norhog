@@ -2,17 +2,33 @@ import { WebSocketServer } from 'ws';
 
 let wss = null;
 
-// Attach a WebSocket server to the HTTP server. Clients only listen;
-// the service pushes leaderboard updates with broadcast().
 const maxClients = 500;
 
+// Browsers always send an Origin header on WebSocket upgrades, so a page on
+// another site can be turned away by comparing it with the Host header. Clients
+// that send no Origin aren't browsers and could fake one anyway, so they are
+// allowed.
+export function sameOrigin(request) {
+  const origin = request.headers.origin;
+  if (!origin) {
+    return true;
+  }
+  try {
+    return new URL(origin).host === request.headers.host;
+  } catch {
+    return false;
+  }
+}
+
+// Attaches a WebSocket server to the HTTP server. Clients only listen, and the
+// service pushes leaderboard updates to them with broadcast().
 export function initWebSocket(httpService) {
   wss = new WebSocketServer({ noServer: true, maxPayload: 1024 });
 
   httpService.on('upgrade', (request, socket, head) => {
-    // Only the leaderboard path, and don't let sockets pile up unbounded.
+    // Accepts only the leaderboard path, up to a fixed number of open sockets.
     const path = (request.url || '').split('?')[0];
-    if (path !== '/ws' || wss.clients.size >= maxClients) {
+    if (path !== '/ws' || wss.clients.size >= maxClients || !sameOrigin(request)) {
       socket.destroy();
       return;
     }
@@ -26,8 +42,8 @@ export function initWebSocket(httpService) {
     ws.on('pong', () => {
       ws.isAlive = true;
     });
-    // Clients only listen; ignore anything they send and never let a socket
-    // error bubble up as an unhandled exception.
+    // Anything a client sends is ignored, and a socket error closes that socket
+    // instead of surfacing as an uncaught exception.
     ws.on('error', () => ws.terminate());
   });
 

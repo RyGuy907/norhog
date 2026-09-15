@@ -1,23 +1,22 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import request from 'supertest';
 
-// Integration tests: real Express app, real middleware chain (sanitization,
-// rate limiting, auth, validation) — only the database is swapped for an
-// in-memory stand-in so tests don't touch Atlas.
+// Integration tests that run the real Express app and middleware (sanitization,
+// rate limiting, auth, and validation). Only the database is replaced, with an
+// in-memory stand-in, so the tests never touch Atlas.
 const store = vi.hoisted(() => ({
   users: [],
   quizzes: [],
   scores: [],
   suggestions: [],
-  // Records every key the routes hand to the data layer, so tests can prove
-  // operator objects never make it that far.
+  // Records every key the routes pass to the data layer, so tests can check that
+  // operator objects never get that far.
   keysSeen: [],
 }));
 
 vi.mock('./database.js', () => {
-  // Mirrors the real asKey guard in database.js: a non-string lookup must
-  // return nothing rather than matching (a null token would otherwise match
-  // every logged-out user).
+  // Matches the asKey guard in database.js. A non-string lookup returns nothing,
+  // since a null token would otherwise match every logged-out user.
   const key = (value) => {
     store.keysSeen.push(value);
     return typeof value === 'string' && value !== '' ? value : null;
@@ -46,7 +45,7 @@ vi.mock('./database.js', () => {
     addUser: async (user) => void store.users.push(user),
     updateUser: async (user) => {
       const found = store.users.find((u) => u.email === user.email);
-      if (found) found.token = user.token;
+      if (found) Object.assign(found, { token: user.token, tokenIssuedAt: user.tokenIssuedAt ?? null });
     },
     deleteUser: async (email) => {
       store.users = store.users.filter((u) => u.email !== email);
@@ -60,8 +59,8 @@ vi.mock('./database.js', () => {
     getUserBestTime: async () => null,
     getUserScores: async () => [],
     deleteScoresForQuiz: async () => {},
-    // Mirrors the real aggregation: count score docs per quiz, join the quiz for
-    // its display fields, drop any whose quiz no longer exists.
+    // Matches the real aggregation, which counts score documents per quiz, joins
+    // the quiz's display fields, and drops scores whose quiz no longer exists.
     getPopularQuizzes: async (limit = 5) => rankByPlays(store.scores, limit),
     getUserFavoriteQuizzes: async (user, limit = 4) => {
       const k = key(user);
@@ -69,7 +68,6 @@ vi.mock('./database.js', () => {
     },
     getSuggestions: async () => store.suggestions,
     addSuggestion: async (s) => void store.suggestions.push(s),
-    getSuggestion: async () => null,
     deleteSuggestion: async () => {},
     getQuizzes: async () => store.quizzes.map(({ slug, title, image, description }) => ({ slug, title, image, description })),
     getQuiz: async (slug) => {
@@ -104,9 +102,9 @@ const testQuiz = {
 const credentials = { email: 'player@example.com', password: 'testpassword123', displayName: 'Player One' };
 
 beforeEach(() => {
-  // The rate limiters keep per-process counters, so without this an earlier
-  // test's registrations push a later one over the limit and it fails for a
-  // reason that has nothing to do with what it is testing.
+  // The rate limiters keep counters for the whole process. Without this, earlier
+  // registrations can push a later test over the limit and fail it for an
+  // unrelated reason.
   resetRateLimits();
   store.users = [];
   store.quizzes = [structuredClone(testQuiz)];
@@ -150,6 +148,46 @@ describe('quiz endpoints', () => {
   it('returns a JSON 404 for unknown API routes', async () => {
     const res = await request(app).get('/api/not-a-real-route').expect(404);
     expect(res.body.msg).toBe('Not found');
+  });
+
+  it('sends basic security headers', async () => {
+    const res = await request(app).get('/api/quizzes').expect(200);
+    expect(res.headers['x-content-type-options']).toBe('nosniff');
+    expect(res.headers['x-frame-options']).toBe('DENY');
+    expect(res.headers['x-powered-by']).toBeUndefined();
+  });
+});
+
+describe('session and rate limit hardening', () => {
+  it('rejects a session token older than seven days', async () => {
+    const agent = await signedInAgent();
+    await agent.get('/api/auth/me').expect(200);
+
+    store.users[0].tokenIssuedAt = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString();
+    await agent.get('/api/auth/me').expect(401);
+  });
+
+  it('rejects a token with no issue time', async () => {
+    const agent = await signedInAgent();
+    delete store.users[0].tokenIssuedAt;
+    await agent.get('/api/auth/me').expect(401);
+  });
+
+  it('counts case and trailing-slash variants of the login path together', async () => {
+    const login = { email: 'nobody@example.com', password: 'wrongpassword1' };
+    for (let i = 0; i < 20; i += 1) {
+      await request(app).post('/api/auth/login').send(login).expect(401);
+    }
+    await request(app).post('/api/auth/LOGIN').send(login).expect(429);
+    await request(app).post('/API/Auth/login/').send(login).expect(429);
+  });
+
+  it('measures the password limit in bytes', async () => {
+    // 40 characters, but 80 bytes in UTF-8.
+    await request(app)
+      .post('/api/auth/create')
+      .send({ ...credentials, password: 'é'.repeat(40) })
+      .expect(400);
   });
 });
 
@@ -201,7 +239,7 @@ describe('popular quizzes', () => {
     const agent = await signedInAgent();
     store.quizzes.push({ ...structuredClone(testQuiz), slug: 'other-quiz', title: 'Other Quiz' });
     store.scores.push(
-      // Someone else hammering a quiz must not appear in this user's favourites.
+      // Another player's many plays shouldn't show up in this user's favorites.
       { user: 'stranger@example.com', quiz: 'other-quiz' },
       { user: 'stranger@example.com', quiz: 'other-quiz' },
       { user: 'stranger@example.com', quiz: 'other-quiz' },
@@ -238,15 +276,15 @@ describe('popular quizzes', () => {
   });
 });
 
-// The sanitizer cannot reassign req.query — it is a getter — so it empties and
-// refills the object in place. That is a load-bearing detail: if it ever stops
-// working, query parameters silently vanish and every board returns global
-// totals instead of the quiz's. Nothing else here exercises a query string.
+// The sanitizer can't reassign req.query because it is a getter, so it empties
+// and refills the object in place. If that ever breaks, query parameters vanish
+// and every board returns global totals instead of the quiz's. Nothing else in
+// this file sends a query string.
 describe('query string handling', () => {
   it('passes a normal query parameter through sanitization to the route', async () => {
     const res = await request(app).get('/api/scores?quiz=test-quiz').expect(200);
-    // The three-board shape proves req.query.quiz survived; without it the
-    // route falls through to the global totals array.
+    // Getting three boards back shows req.query.quiz survived. Without it the
+    // route would return the global totals array.
     expect(res.body).toHaveProperty('easy');
     expect(res.body).toHaveProperty('medium');
     expect(res.body).toHaveProperty('hard');
@@ -259,8 +297,8 @@ describe('query string handling', () => {
   });
 
   it('never lets a query-smuggled operator object reach the data layer', async () => {
-    // Express 4 parses this into { $gt: '' }; Express 5's simpler default parser
-    // keeps it a flat string key. Either way no operator may reach the database.
+    // Express 4 parses this into { $gt: '' }, while Express 5's default parser
+    // keeps it as a flat string key. Either way no operator should reach the database.
     await request(app).get('/api/scores?quiz[$gt]=');
     const leaked = store.keysSeen.filter((k) => k !== null && typeof k !== 'string');
     expect(leaked).toEqual([]);

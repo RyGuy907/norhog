@@ -15,9 +15,23 @@ const port = process.argv.length > 2 ? process.argv[2] : 4000;
 
 const authCookieName = 'token';
 
-// Behind Caddy in production, so req.ip reflects X-Forwarded-For.
+// In production the service sits behind Caddy, so req.ip is read from X-Forwarded-For.
 app.set('trust proxy', 1);
 app.disable('x-powered-by');
+
+// Basic security headers, since Caddy doesn't add any by default. HSTS is only
+// sent in production, where the site is always served over HTTPS.
+app.use((_req, res, next) => {
+  res.set({
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+  });
+  if (process.env.NODE_ENV === 'production') {
+    res.set('Strict-Transport-Security', 'max-age=15552000');
+  }
+  next();
+});
 
 app.use(express.json({ limit: '256kb' }));
 app.use(cookieParser());
@@ -27,7 +41,7 @@ app.use(express.static('public'));
 const apiRouter = express.Router();
 app.use('/api', apiRouter);
 
-// Brute-force protection on credential endpoints.
+// Limits guessing on the login and signup endpoints.
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
@@ -35,8 +49,8 @@ const authLimiter = rateLimit({
 });
 const writeLimiter = rateLimit({ windowMs: 60 * 1000, max: 60 });
 
-// Plain HTTP (a bare EC2 IP or LAN address) silently drops secure cookies,
-// so only require HTTPS when running in production behind Caddy.
+// Browsers drop Secure cookies over plain HTTP, which would break local
+// development, so the flag is only set in production where Caddy serves HTTPS.
 const cookieOptions = {
   secure: process.env.NODE_ENV === 'production',
   httpOnly: true,
@@ -52,6 +66,18 @@ function clearAuthCookie(res) {
   res.clearCookie(authCookieName, cookieOptions);
 }
 
+// Looks up the user for the request's session cookie. The token's age is
+// checked here as well as by the cookie's maxAge, so a copied token stops
+// working after the same 7 days instead of lasting until the next login.
+async function sessionUser(req) {
+  const user = await DB.getUserByToken(asString(req.cookies[authCookieName], 100));
+  if (!user) {
+    return null;
+  }
+  const age = Date.now() - Date.parse(user.tokenIssuedAt);
+  return age >= 0 && age < sessionMaxAge ? user : null;
+}
+
 function userResponse(user) {
   return {
     email: user.email,
@@ -61,8 +87,8 @@ function userResponse(user) {
   };
 }
 
-// bcrypt silently truncates at 72 bytes; reject longer rather than accept a
-// password whose tail is ignored.
+// bcrypt ignores everything past 72 bytes, so longer passwords are rejected
+// instead of being quietly cut short.
 const maxPasswordLength = 72;
 
 apiRouter.post('/auth/create', authLimiter, route(async (req, res) => {
@@ -76,8 +102,9 @@ apiRouter.post('/auth/create', authLimiter, route(async (req, res) => {
   if (!password || password.length < 8) {
     return res.status(400).send({ msg: 'Password must be at least 8 characters' });
   }
-  if (password.length > maxPasswordLength) {
-    return res.status(400).send({ msg: `Password must be ${maxPasswordLength} characters or fewer` });
+  // Measured in bytes, since accented letters and emoji take more than one.
+  if (Buffer.byteLength(password, 'utf8') > maxPasswordLength) {
+    return res.status(400).send({ msg: 'Password is too long' });
   }
   if (!displayName || displayName.length < 3 || displayName.length > 20) {
     return res.status(400).send({ msg: 'Display name must be 3-20 characters' });
@@ -100,14 +127,15 @@ apiRouter.post('/auth/create', authLimiter, route(async (req, res) => {
     nameLower: displayName.toLowerCase(),
     password: await bcrypt.hash(password, 10),
     token: uuidv4(),
+    tokenIssuedAt: new Date().toISOString(),
     creationDate: new Date().toISOString(),
   };
 
   try {
     await DB.addUser(user);
   } catch (err) {
-    // Unique indexes are the real guard against two simultaneous signups
-    // claiming the same email or display name.
+    // The checks above can race when two signups arrive at once, so the unique
+    // indexes on email and display name are what actually prevent duplicates.
     if (err.code === 11000) {
       return res.status(409).send({ msg: 'That email or display name is already taken' });
     }
@@ -118,8 +146,9 @@ apiRouter.post('/auth/create', authLimiter, route(async (req, res) => {
   res.status(201).send(userResponse(user));
 }));
 
-// Compared against when no user matches, so a bad email costs the same time
-// as a bad password (otherwise response timing reveals which emails exist).
+// When no user matches, the password is still compared against this hash so an
+// unknown email takes as long as a wrong password. Without it, response timing
+// would show which emails have accounts.
 const dummyHash = bcrypt.hashSync('timing-equalizer', 10);
 
 apiRouter.post('/auth/login', authLimiter, route(async (req, res) => {
@@ -130,6 +159,7 @@ apiRouter.post('/auth/login', authLimiter, route(async (req, res) => {
 
   if (user && passwordMatches) {
     user.token = uuidv4();
+    user.tokenIssuedAt = new Date().toISOString();
     await DB.updateUser(user);
     setAuthCookie(res, user.token);
     return res.status(200).send(userResponse(user));
@@ -142,6 +172,7 @@ apiRouter.post('/auth/logout', route(async (req, res) => {
   const user = await DB.getUserByToken(asString(req.cookies[authCookieName], 100));
   if (user) {
     user.token = null;
+    user.tokenIssuedAt = null;
     await DB.updateUser(user);
   }
   clearAuthCookie(res);
@@ -151,7 +182,7 @@ apiRouter.post('/auth/logout', route(async (req, res) => {
 // Middleware that requires a valid auth cookie.
 async function verifyAuth(req, res, next) {
   try {
-    const user = await DB.getUserByToken(asString(req.cookies[authCookieName], 100));
+    const user = await sessionUser(req);
     if (user) {
       req.user = user;
       next();
@@ -193,24 +224,24 @@ apiRouter.get('/quizzes', route(async (_req, res) => {
   res.status(200).send(await DB.getQuizzes());
 }));
 
-// Most-played quizzes for the leaderboard sidebar. Public, like the boards it
-// sits next to, and returns only display fields — no answers, no player names.
+// Most-played quizzes for the leaderboard sidebar. It is public like the boards
+// next to it and returns display fields only, with no answers or player names.
 apiRouter.get('/quizzes/popular', route(async (_req, res) => {
   res.status(200).send(await DB.getPopularQuizzes(5));
 }));
 
-// The signed-in player's own most-played quizzes. The identity comes from the
-// session cookie via verifyAuth, never from the request, so one user cannot ask
-// for another's history.
+// The signed-in player's own most-played quizzes. The user comes from the
+// session cookie through verifyAuth rather than a request parameter, so nobody
+// can ask for another player's history.
 apiRouter.get('/quizzes/favorites', verifyAuth, route(async (req, res) => {
   res.status(200).send(await DB.getUserFavoriteQuizzes(req.user.email, 4));
 }));
 
-// Public quiz payload: question text plus locked answers. Each accepted
-// spelling becomes an id (to match a guess against) and a ciphertext of the
-// display answer keyed by that spelling, so nothing readable ships to the
-// browser and a client can only reveal answers it has actually guessed.
-// Unguessed answers are released by /attempt/finish once the run is over.
+// Builds the public quiz payload, which has the question text and locked
+// answers. Each accepted spelling becomes an id (compared against a guess) and
+// a ciphertext of the display answer keyed by that spelling. No readable
+// answers reach the browser, and the client can only unlock an answer it has
+// actually guessed. The rest are sent by /attempt/finish when the run ends.
 function publicQuiz(quiz) {
   const salt = newSalt();
   const difficulties = {};
@@ -231,7 +262,7 @@ apiRouter.get('/quiz/:slug', route(async (req, res) => {
   res.status(200).send(publicQuiz(quiz));
 }));
 
-// Admins editing a quiz need the answers.
+// The plaintext answers, which admins need when editing a quiz.
 apiRouter.get('/quiz/:slug/full', verifyAuth, verifyAdmin, route(async (req, res) => {
   const quiz = await DB.getQuiz(req.params.slug);
   if (!quiz) {
@@ -240,13 +271,13 @@ apiRouter.get('/quiz/:slug/full', verifyAuth, verifyAdmin, route(async (req, res
   res.status(200).send(quiz);
 }));
 
-// Validate and sanitize a quiz payload. Returns { quiz } or { error }.
+// Time limits in seconds, used when a quiz payload leaves them out.
 const defaultTimeLimits = { easy: 360, medium: 480, hard: 600 };
 
 const maxQuestionsPerLevel = 100;
 
-// Quiz images are rendered into an <img src>, so only allow http(s) URLs —
-// a javascript: or data: URL there would be a stored XSS vector.
+// Quiz images end up in an <img src>, so only http and https URLs are kept.
+// A javascript: or data: URL there could be used for stored XSS.
 function safeImageUrl(value) {
   const url = asString(value, 500);
   if (!url) {
@@ -260,9 +291,9 @@ function safeImageUrl(value) {
   }
 }
 
-// object-position is written straight into an inline style, so accept only the
-// CSS keywords and percentages a focal point actually needs — never arbitrary
-// text, which could smuggle in url() or other declarations.
+// The image position is written directly into an inline style, so only the
+// CSS keywords and percentages a focal point needs are allowed. Free text could
+// otherwise slip in url() or extra declarations.
 function safeObjectPosition(value) {
   const raw = asString(value, 40);
   if (!raw) {
@@ -276,6 +307,7 @@ function safeObjectPosition(value) {
   return tokens.every((t) => ok.test(t)) ? tokens.join(' ') : '';
 }
 
+// Validates and cleans a quiz payload. Returns { quiz } or { error }.
 function validateQuiz(body) {
   const slug = asString(body.slug, 100) || '';
   const title = asString(body.title, 120) || '';
@@ -395,16 +427,20 @@ apiRouter.post('/quiz-image-url', verifyAuth, verifyAdmin, writeLimiter, route(a
 // A quiz is worth up to 10 points; harder difficulties are worth more.
 const difficultyPoints = { easy: 6, medium: 8, hard: 10 };
 
-// The leaderboard shows everyone rather than a top ten, so the page can scroll
-// through the full standings. Still bounded, because this payload is also
-// broadcast to every open socket on each score submission.
+// The leaderboard lists the full standings instead of a top ten. It still has
+// a cap because the same payload is broadcast to every open socket whenever a
+// score comes in.
 const leaderboardLimit = 200;
 
-// In-flight quiz attempts, keyed by a single-use token. The server records
-// when play actually started so elapsed time can't be claimed by the client.
+// Quiz runs in progress, keyed by a single-use token. The server records when
+// play started so the client can't report its own elapsed time.
 const attempts = new Map();
 const attemptGraceMs = 15000;
-// Floor on plausible human speed; anything faster is a scripted submission.
+// Attempts don't require an account, so the map has a hard cap to keep a flood
+// of requests from using up the server's memory.
+const maxAttempts = 10000;
+// The fastest pace a person could plausibly type answers. Anything quicker is
+// treated as a scripted submission.
 const minSecondsPerAnswer = 0.4;
 
 setInterval(() => {
@@ -416,19 +452,19 @@ setInterval(() => {
   }
 }, 60 * 1000).unref();
 
-// Attaches req.user when a valid session cookie is present, but doesn't
-// require one — guests can play, their runs just aren't scored.
+// Sets req.user when a valid session cookie is present but doesn't require
+// one. Guests can play, but their runs aren't scored.
 async function optionalAuth(req, _res, next) {
   try {
-    req.user = await DB.getUserByToken(asString(req.cookies[authCookieName], 100));
+    req.user = await sessionUser(req);
   } catch {
     req.user = null;
   }
   next();
 }
 
-// Starting a quiz issues an attempt token recording when play began, so the
-// elapsed time on a submission comes from the server's clock, not the client.
+// Starting a quiz issues an attempt token that records when play began, so the
+// elapsed time on a submission comes from the server's clock.
 apiRouter.post('/attempt', optionalAuth, writeLimiter, route(async (req, res) => {
   const quizSlug = asString(req.body.quiz, 100);
   const difficulty = asString(req.body.difficulty, 20);
@@ -439,6 +475,9 @@ apiRouter.post('/attempt', optionalAuth, writeLimiter, route(async (req, res) =>
   }
   if (!Object.hasOwn(difficultyPoints, difficulty)) {
     return res.status(400).send({ msg: 'Invalid difficulty' });
+  }
+  if (attempts.size >= maxAttempts) {
+    return res.status(503).send({ msg: 'The server is busy. Please try again in a minute.' });
   }
 
   const timeLimit = quiz.timeLimits[difficulty];
@@ -457,7 +496,7 @@ apiRouter.post('/attempt', optionalAuth, writeLimiter, route(async (req, res) =>
   res.status(201).send({ attemptId, timeLimit });
 }));
 
-// Look up an attempt, enforcing that it belongs to the caller.
+// Looks up an attempt and returns it only if it belongs to the caller.
 function getAttempt(req) {
   const attemptId = asString(req.body.attemptId, 100);
   const attempt = attemptId ? attempts.get(attemptId) : null;
@@ -468,10 +507,10 @@ function getAttempt(req) {
   return attempt.user === caller ? attempt : null;
 }
 
-
-// Ending a run: the server already knows the score (from tracked guesses)
-// and the elapsed time, so nothing about the result is client-asserted.
-// Always returns the full answer key for the reveal, since the run is over.
+// Ends a run. The attempt token is consumed, elapsed time comes from the
+// server's clock, and the score is range-checked and rejected if it was
+// reached faster than a person could type. The full answer key is always
+// returned for the end-of-run reveal.
 apiRouter.post('/attempt/finish', optionalAuth, writeLimiter, route(async (req, res) => {
   const attempt = getAttempt(req);
   if (!attempt) {
@@ -621,7 +660,7 @@ apiRouter.delete('/suggestions/:id', verifyAuth, verifyAdmin, route(async (req, 
   res.status(200).send({ msg: 'Suggestion removed' });
 }));
 
-// Unknown API routes should be a JSON 404, not the SPA's HTML.
+// Unknown API routes get a JSON 404 instead of the React app's HTML.
 apiRouter.use((_req, res) => {
   res.status(404).send({ msg: 'Not found' });
 });
@@ -633,15 +672,15 @@ app.use((err, _req, res, _next) => {
   res.status(500).send({ msg: 'Something went wrong' });
 });
 
-// Serve the React app for unknown routes
+// Every other route serves the React app, which handles its own routing.
 app.use((_req, res) => {
   res.sendFile('index.html', { root: 'public' });
 });
 
+// Inserts any starter quizzes missing from the database. Existing quizzes are
+// never overwritten, so admin edits survive a restart. The existing slugs are
+// fetched in one query instead of one lookup per quiz.
 async function seedStarterQuizzes() {
-  // Seed starter quizzes that aren't in the database yet (never overwrites edits).
-  // One query for the existing slugs rather than a lookup per quiz: at 150
-  // starters that is a single round trip instead of 150.
   const present = new Set((await DB.getQuizzes()).map((quiz) => quiz.slug));
   const missing = seedQuizzes.filter((quiz) => !present.has(quiz.slug));
   for (const quiz of missing) {
@@ -654,7 +693,7 @@ async function seedStarterQuizzes() {
 }
 
 function start() {
-  // Last-resort net: log rather than let an escaped async error kill the service.
+  // A last resort that logs an escaped async error instead of letting it stop the service.
   process.on('unhandledRejection', (reason) => {
     console.log(`Unhandled rejection: ${reason?.message || reason}`);
   });
@@ -669,22 +708,14 @@ function start() {
   initWebSocket(httpService);
 }
 
-// Boot unless the test runner imported us — importing this module from a test
-// should give you the Express app without opening a port or seeding.
+// Tests import this module to get the Express app without opening a port or
+// seeding. The check looks for the test runner instead of comparing
+// import.meta.url with process.argv[1], because pm2 points argv[1] at its own
+// wrapper script and that comparison would stop the server from ever starting.
 //
-// This deliberately checks for the test runner rather than asking "am I the entry
-// point?". The previous version compared import.meta.url against
-// resolve(process.argv[1]), which works under `node index.js` but fails silently
-// under a process manager: pm2's fork mode points argv[1] at its own wrapper
-// script, so the comparison was false, start() never ran, and nothing ever
-// listened on the port. The service looked healthy — pm2 reported it online and
-// the database connected, because that is an import side effect — while every
-// request through Caddy returned 502.
-// Listen first, then seed in the background. Seeding used to be awaited here,
-// which was invisible while it was a no-op — but the moment it had 90 quizzes to
-// insert it delayed app.listen() past the deploy script's smoke check, the
-// health probe found nothing on the port, and the release was rolled back.
-// Serving does not depend on seeding, so it must not gate the port opening.
+// Seeding runs in the background after the port opens. Awaiting it first can
+// push app.listen() past the deploy script's health check when many quizzes
+// need inserting, which rolls the release back.
 if (!process.env.VITEST) {
   start();
   seedStarterQuizzes().catch((err) => {
@@ -692,9 +723,8 @@ if (!process.env.VITEST) {
   });
 }
 
-// Test-only helper: the limiters hold per-process counters that outlive an
-// individual case, so a suite sharing one app instance must clear them between
-// tests. Not referenced by the running service.
+// Only used by tests. The limiters keep counters for the life of the process,
+// so a suite that shares one app instance clears them between tests.
 export function resetRateLimits() {
   authLimiter.reset();
   writeLimiter.reset();

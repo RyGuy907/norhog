@@ -1,24 +1,24 @@
-// Request hardening: input sanitization, type-safe field readers, and
+// Request hardening: input sanitization, type-checked field readers, and
 // simple in-memory rate limiting.
 
 // MongoDB treats object values like {$ne: null} as query operators. JSON
-// bodies and Express's extended query parser can both produce objects where
-// a string is expected, so strip operator-ish keys before anything reaches
-// the database.
+// bodies and Express's query parser can both produce objects where a string
+// is expected, so operator-like keys are removed before anything reaches the
+// database.
 const blockedKeys = new Set(['__proto__', 'constructor', 'prototype']);
 
 function scrub(value, depth = 0) {
   if (value === null || typeof value !== 'object') {
     return value;
   }
-  // Drop anything absurdly deep rather than passing it through unscrubbed.
+  // Very deep input is dropped instead of being passed through unscrubbed.
   if (depth > 20) {
     return null;
   }
   if (Array.isArray(value)) {
     return value.map((entry) => scrub(entry, depth + 1));
   }
-  // Null-prototype target so a "__proto__" key can't re-parent the object.
+  // A null-prototype target means a "__proto__" key can't change the object's prototype.
   const clean = Object.create(null);
   for (const [key, entry] of Object.entries(value)) {
     if (key.startsWith('$') || key.includes('.') || blockedKeys.has(key)) {
@@ -33,8 +33,8 @@ export function sanitizeRequest(req, _res, next) {
   if (req.body) {
     req.body = scrub(req.body);
   }
-  // cookie-parser turns a `j:`-prefixed cookie into a parsed object, so
-  // cookies are an injection vector too.
+  // cookie-parser turns a `j:`-prefixed cookie into a parsed object, so cookies
+  // need scrubbing too.
   if (req.cookies) {
     req.cookies = scrub(req.cookies);
   }
@@ -42,7 +42,8 @@ export function sanitizeRequest(req, _res, next) {
     req.signedCookies = scrub(req.signedCookies);
   }
   if (req.query) {
-    // req.query is a getter in Express 5 / read-only in some setups.
+    // req.query is a getter in Express 5 and can't be reassigned, so its keys
+    // are replaced in place.
     const cleaned = scrub(req.query);
     for (const key of Object.keys(req.query)) {
       delete req.query[key];
@@ -55,9 +56,9 @@ export function sanitizeRequest(req, _res, next) {
   next();
 }
 
-// Returns the trimmed string, or null when the value isn't a plain string.
-// Guards every route against type-confusion crashes (a non-string reaching
-// .trim() used to take the whole process down).
+// Returns the trimmed string, or null when the value isn't a string. Routes use
+// it for every text field so an object or number can't crash a handler that
+// expects to call string methods.
 export function asString(value, maxLength = 1000) {
   if (typeof value !== 'string') {
     return null;
@@ -66,13 +67,20 @@ export function asString(value, maxLength = 1000) {
 }
 
 // Wraps an async route handler so a rejected promise becomes a 500 response
-// instead of an unhandled rejection that kills the process.
+// instead of an unhandled rejection.
 export function route(handler) {
   return (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
 }
 
-// Fixed-window rate limiter, per IP + route key. In-memory is fine for a
-// single-instance deployment.
+// Express matches routes regardless of case or a trailing slash, so the key
+// uses the matched route pattern, lowercased and without a trailing slash.
+// Keying on the raw path would give /api/auth/LOGIN its own fresh counter.
+function routeKey(req) {
+  return `${req.baseUrl}${req.route?.path ?? req.path}`.toLowerCase().replace(/\/+$/, '');
+}
+
+// Fixed-window rate limiter keyed by IP and route. Keeping the counts in memory
+// works because the service runs as a single instance.
 export function rateLimit({ windowMs, max, message }) {
   const hits = new Map();
 
@@ -86,7 +94,7 @@ export function rateLimit({ windowMs, max, message }) {
   }, windowMs).unref();
 
   const middleware = (req, res, next) => {
-    const key = `${req.ip}:${req.baseUrl}${req.path}`;
+    const key = `${req.ip}:${routeKey(req)}`;
     const now = Date.now();
     const entry = hits.get(key);
 
@@ -101,10 +109,9 @@ export function rateLimit({ windowMs, max, message }) {
     next();
   };
 
-  // The counters are module-level and outlive a single test. A suite that shares
-  // one app instance therefore leaks limiter state between cases, so adding an
-  // auth test can push an unrelated one over the limit. Nothing in the running
-  // service calls this.
+  // Clears the counters between tests. A suite that shares one app instance
+  // would otherwise carry limiter state from one case into the next. The
+  // running service never calls it.
   middleware.reset = () => hits.clear();
 
   return middleware;
