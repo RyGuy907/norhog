@@ -5,7 +5,11 @@ on:
     branches: ['**']
   pull_request:
 
-# The app lives in a subdirectory; the repo root holds older coursework.
+# Read-only by default. The deploy job asks for the extra token it needs.
+permissions:
+  contents: read
+
+# The app lives in a subdirectory of the repository.
 defaults:
   run:
     working-directory: startup_react
@@ -27,9 +31,9 @@ jobs:
 
       - run: npm ci
 
-      # eslint currently reports 5 warnings (react-hooks/set-state-in-effect) and
-      # 0 errors, so this passes. Deliberately no --max-warnings 0 until those are
-      # cleaned up, otherwise CI would block on known, non-breaking findings.
+      # eslint reports 0 errors and 5 warnings (react-hooks/set-state-in-effect).
+      # There is no --max-warnings 0 yet, since CI would then block on known
+      # findings that don't break anything.
       - name: Lint
         run: npm run lint
 
@@ -55,10 +59,9 @@ jobs:
           cache: npm
           cache-dependency-path: startup_react/service/package-lock.json
 
-      # No dbConfig.json exists here, and none is needed: api.test.js mocks
+      # No dbConfig.json exists here and none is needed. api.test.js mocks
       # database.js, so the module that reads that file never loads, and
-      # imageStore.js tolerates its absence by design. Verified locally by
-      # running the suite with the file moved aside.
+      # imageStore.js works without it by design.
       - run: npm ci
         working-directory: startup_react/service
 
@@ -66,11 +69,10 @@ jobs:
         run: npm test
         working-directory: startup_react/service
 
-  # Deploy lives in this workflow rather than a separate deploy.yml so that
-  # `needs:` gates it on the test jobs directly. A separate workflow would have to
-  # use `workflow_run`, which fires on completion regardless of outcome and then
-  # needs its own conclusion check and explicit ref handling — more moving parts
-  # for the same guarantee.
+  # Deploy lives in this workflow rather than a separate deploy.yml so `needs:`
+  # can gate it on the test jobs directly. A separate workflow would have to use
+  # `workflow_run`, which fires regardless of outcome and then needs its own
+  # conclusion check and ref handling for the same guarantee.
   deploy:
     name: Deploy to norhog.com
     needs: [frontend, service]
@@ -97,9 +99,9 @@ jobs:
       - run: npm ci
       - run: npm run build
 
-      # Mirrors deployService.sh's bundle exactly, with one deliberate omission:
-      # dbConfig.json. Only *.js and the two package manifests are copied, so the
-      # Atlas credentials never enter the artifact. The server holds its own copy.
+      # The same bundle deployService.sh builds, minus dbConfig.json. Only *.js
+      # and the two package manifests are copied, so the Atlas credentials never
+      # enter the artifact. The server keeps its own copy.
       - name: Assemble the deploy bundle
         run: |
           rm -rf build && mkdir build
@@ -113,8 +115,8 @@ jobs:
           echo "no credentials in bundle:"
           ! tar -tzf artifact.tar.gz | grep -q dbConfig.json && echo "  confirmed" || exit 1
 
-      # OIDC federation: GitHub presents a short-lived token and assumes the role.
-      # No long-lived AWS access keys are stored in this repository.
+      # OIDC federation, where GitHub presents a short-lived token and assumes the
+      # role. No long-lived AWS access keys are stored in this repository.
       - uses: aws-actions/configure-aws-credentials@v5
         with:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
@@ -126,7 +128,7 @@ jobs:
         run: aws s3 cp artifact.tar.gz "s3://${BUCKET}/${{ github.sha }}.tar.gz" --only-show-errors
 
       # SSM runs the command on the instance. GitHub never opens a connection to
-      # the server, so port 22 stays closed to everything but your home IP.
+      # the server, so port 22 stays closed to everything but one home IP.
       - name: Trigger the deploy via SSM
         env:
           BUCKET: ${{ vars.DEPLOY_BUCKET }}
@@ -169,8 +171,8 @@ jobs:
           echo "SSM status: $STATUS"
           [ "$STATUS" = "Success" ]
 
-      # The remote script already smoke-checks port 4000; this proves the whole
-      # path including Caddy and TLS from outside.
+      # The remote script already checks port 4000. This checks the whole path
+      # from outside, including Caddy and TLS.
       - name: Verify the live site
         run: |
           curl -fsS -m 20 -o /dev/null https://norhog.com/api/quizzes

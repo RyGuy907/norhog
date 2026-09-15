@@ -1,18 +1,16 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
-// A quiz tile. status = {points, perfectCount} from /api/scores/me (or undefined).
-// Completed (best possible 10 points) tiles grey out; a star marks perfect
-// runs on all three difficulties.
-// meta is optional supporting text shown beneath the title in the same overlay
-// (the leaderboard's Most Played board uses it for the play count).
+// A quiz tile. `status` is {points, perfectCount} from /api/scores/me, or
+// undefined for guests. Tiles with the full 10 points are greyed out as
+// completed, and a star marks perfect runs on all three difficulties. `meta` is
+// optional text under the title, which the Most Played board uses for play counts.
 export function QuizCard({ quiz, status, meta }) {
   const completed = status?.points === 10;
   const starred = status?.perfectCount === 3;
-  // Tall images are cropped from the top so the subject's head stays in
-  // frame; measured on load so any uploaded image is handled automatically.
-  // A quiz can override that with imagePosition (a CSS object-position) when
-  // the automatic crop puts the subject behind the title band or off-frame.
+  // Tall images are cropped from the top so the subject's face stays in frame.
+  // The shape is measured on load, so uploaded images are handled too. A quiz
+  // can set imagePosition (a CSS object-position) when that crop doesn't work.
   const [portrait, setPortrait] = useState(false);
   const focal = quiz.imagePosition || '';
 

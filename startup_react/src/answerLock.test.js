@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createHash } from 'crypto';
 import { lookup } from './answerLock';
 
-// Mirrors service/answerLock.js so the test proves the two halves agree.
+// Re-implements service/answerLock.js so the test checks that both halves agree.
 function serverLock(salt, variant, answer) {
   const seed = createHash('sha256').update(`${salt}:${variant}`).digest();
   const plain = Buffer.from(answer, 'utf8');

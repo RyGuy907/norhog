@@ -3,7 +3,7 @@ import './quizForm.css';
 
 const emptyEntry = () => ({ question: '', answer: '', acceptText: '' });
 
-// Server entries store accept as an array; the form edits it as one
+// The server stores `accept` as an array, and the form edits it as one
 // comma-separated text field.
 const toFormDifficulties = (difficulties) => {
   const out = {};
@@ -46,8 +46,8 @@ export const emptyQuizForm = () => ({
   },
 });
 
-// Shared quiz editor used by the admin quiz manager and the public
-// suggestion form. Image file upload (S3) is admin-only via allowUpload.
+// Quiz editor shared by the admin quiz manager and the public suggestion form.
+// S3 image upload is only shown to admins, through allowUpload.
 export function QuizForm({ initial, slugLocked, allowUpload, submitLabel, errorMsg, onSave, onCancel }) {
   const [form, setForm] = useState(() => ({
     ...initial,

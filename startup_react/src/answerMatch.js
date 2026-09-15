@@ -1,8 +1,7 @@
-// Normalizes a typed guess so it can be matched regardless of case,
-// punctuation, accents, or a leading "the". The server applies the same
-// normalization (service/answerMatch.js) when locking accepted answers, and
-// also pre-expands roman/arabic numeral variants there — so the client only
-// needs to normalize.
+// Normalizes a typed guess so it matches regardless of case, punctuation,
+// accents, or a leading "the". The server applies the same normalization in
+// service/answerMatch.js when locking answers, and it also expands roman and
+// arabic numeral variants there, so the client only needs to normalize.
 export function normalize(text) {
   let t = String(text)
     .toLowerCase()

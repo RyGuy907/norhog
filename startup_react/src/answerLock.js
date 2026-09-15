@@ -1,6 +1,6 @@
-// Client half of the answer locking in service/answerLock.js: derive the same
-// digest from a normalized guess to find a matching question, then use it to
-// decrypt that answer's display text. Answers you haven't guessed stay
+// Client half of the answer locking in service/answerLock.js. It derives the
+// same digest from a normalized guess to find a matching question, then uses it
+// to decrypt that answer's display text. Answers that haven't been guessed stay
 // unreadable until the server reveals them at the end of a run.
 
 async function sha256(bytes) {

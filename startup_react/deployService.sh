@@ -1,3 +1,11 @@
+#!/usr/bin/env bash
+#
+# Manual deploy over SSH. Builds the frontend, bundles it with the service, and
+# restarts it on the server with pm2. The CI pipeline uses deployFromS3.sh
+# instead; this script is for first-time setup or deploying without CI.
+#
+#   ./deployService.sh -k <pem key file> -h <hostname> -s <service>
+
 while getopts k:h:s: flag
 do
     case "${flag}" in
@@ -19,15 +27,15 @@ printf "\n----> Deploying React bundle $service to $hostname with $key\n"
 printf "\n----> Build the distribution package\n"
 rm -rf build
 mkdir build
-npm install # make sure vite is installed so that we can bundle
-npm run build # build the React front end
-cp -rf dist build/public # move the React front end to the target distribution
-cp service/*.js build # move the back end service to the target distribution
-# Only the package manifests ship. dbConfig.json holds the Atlas credentials and
-# lives on the server instead (see step 4), so a deploy never carries secrets off
-# this machine and CI can run the same script without them.
+npm install # vite is needed to bundle the frontend
+npm run build
+cp -rf dist build/public # the built frontend is served by the service as static files
+cp service/*.js build
+# Only the package manifests are copied. dbConfig.json holds the Atlas
+# credentials and stays on the server (see step 4), so a deploy never carries
+# them off this machine.
 cp service/package.json service/package-lock.json build
-rm -f build/*.test.js build/vitest.config.js # tests don't belong in the deployed bundle
+rm -f build/*.test.js build/vitest.config.js # tests aren't needed on the server
 
 # Step 2
 printf "\n----> Clearing out previous distribution on the target\n"
@@ -56,14 +64,14 @@ if [ ! -f ~/config/${service}/dbConfig.json ]; then
 fi
 ln -sf ~/config/${service}/dbConfig.json services/${service}/dbConfig.json
 cd services/${service}
-# Production install only: vitest and supertest have no business on the server,
-# and skipping them roughly halves both the install peak and the disk footprint.
+# Production install only. Skipping vitest and supertest roughly halves the
+# install's memory peak and disk use.
 npm ci --omit=dev
 pm2 restart ${service}
 
-# Smoke check: pm2 reporting "online" only means the process is alive, not that it
-# ever bound the port. A boot path that dies before app.listen leaves pm2 green
-# while every request through Caddy returns 502. Fail the deploy loudly instead.
+# pm2 reporting "online" only means the process is alive, not that it opened the
+# port. If startup fails before app.listen, pm2 still looks fine while Caddy
+# returns 502, so the deploy checks the port directly.
 sleep 6
 if curl -fsS -m 10 -o /dev/null http://127.0.0.1:4000/api/quizzes; then
   printf "\n----> Smoke check passed: service is answering on port 4000\n"

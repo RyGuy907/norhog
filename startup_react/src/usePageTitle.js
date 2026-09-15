@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 
-// Per-route document titles: better browser history, bookmarks, and search
-// results than one static title for the whole SPA.
+// Sets a document title for each route, which gives clearer browser history,
+// bookmarks, and search results than one title for the whole app.
 export function usePageTitle(title) {
   useEffect(() => {
     document.title = title ? `${title} — Norhog` : 'Norhog — Timed History Quizzes';

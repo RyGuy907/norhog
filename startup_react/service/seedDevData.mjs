@@ -1,11 +1,10 @@
-// Fills a LOCAL scratch database with believable users and play history so the
-// leaderboard, Most Played and Your Favorites boards have something to show.
+// Fills a local scratch database with believable users and play history so the
+// leaderboard, Most Played, and Your Favorites boards have something to show.
 //
 //   node seedDevData.mjs
 //
-// Refuses to run unless dbConfig.json sets dbName to something other than the
-// production database — this writes fake accounts and scores, and they must
-// never reach the live site.
+// It refuses to run unless dbConfig.json sets dbName to something other than
+// the production database, since it writes fake accounts with a known password.
 import fs from 'fs';
 import bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
@@ -32,8 +31,8 @@ const PLAYERS = [
   { displayName: 'DustyTome', email: 'tome@norhog.dev' },
 ];
 
-// How many times each quiz gets played, highest first, so the boards have a
-// clear shape rather than everything sitting on one play.
+// How many times each quiz gets played, highest first, so the boards show a
+// clear ranking instead of every quiz sitting at one play.
 const PLAY_WEIGHTS = [
   ['world-war-ii', 34], ['ancient-egypt', 29], ['roman-empire', 25],
   ['space-race', 21], ['french-revolution', 18], ['vikings', 16],
@@ -46,7 +45,7 @@ const PLAY_WEIGHTS = [
 const DIFFICULTIES = ['easy', 'medium', 'hard'];
 const POINTS = { easy: 6, medium: 8, hard: 10 };
 
-// Deterministic PRNG so re-running produces the same fixture rather than drift.
+// A seeded random generator, so re-running produces the same data every time.
 let seed = 20260728;
 const rnd = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
 const pick = (arr) => arr[Math.floor(rnd() * arr.length)];
@@ -63,7 +62,7 @@ const quizzes = await db.collection('quizzes').find().project({ _id: 0, slug: 1 
 const known = new Set(quizzes.map((q) => q.slug));
 console.log(`  ${known.size} quizzes present`);
 
-// Start clean so re-running doesn't pile plays on top of the last run.
+// Clears the previous fixture so re-running doesn't add plays on top of it.
 await db.collection('users').deleteMany({ email: /@norhog\.dev$/ });
 await db.collection('scores').deleteMany({ user: /@norhog\.dev$/ });
 
@@ -85,7 +84,7 @@ for (const [slug, plays] of PLAY_WEIGHTS) {
   if (!known.has(slug)) continue;
   for (let i = 0; i < plays; i += 1) {
     // The first player is weighted toward the top quizzes so their Favorites
-    // board has an obvious shape when you log in as them.
+    // board has a clear order when logged in as them.
     const player = i % 3 === 0 && PLAY_WEIGHTS.findIndex(([s]) => s === slug) < 5
       ? users[0]
       : pick(users);

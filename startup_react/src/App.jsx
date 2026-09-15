@@ -16,8 +16,8 @@ import './App.css';
 function App() {
   const [isAdmin, setIsAdmin] = useState(false);
 
-  // Track the session's role so the Admin nav item only shows for admins.
-  // Profile dispatches 'authChanged' after login/logout.
+  // Tracks the session's role so the Admin nav item only shows for admins. The
+  // profile page dispatches 'authChanged' after login and logout.
   useEffect(() => {
     const checkRole = async () => {
       try {
@@ -44,9 +44,9 @@ function App() {
         <header className="header">
           <div className="header-bar">
             <NavLink to="/" className="brand">
-              {/* Decorative: the adjacent wordmark already names the link, so an
-                  alt here would just be read out twice. Intrinsic size is set to
-                  reserve the space and avoid a layout shift while it loads. */}
+              {/* Empty alt because the wordmark next to it already names the link,
+                  so screen readers would read it twice. The width and height
+                  reserve space so the header doesn't shift while it loads. */}
               <img
                 className="brand-mark"
                 src="/norhog-logo.png"

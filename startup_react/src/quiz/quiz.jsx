@@ -29,17 +29,17 @@ export function Quiz() {
   const [gameInfo, setGameInfo] = useState(false);
   const [userAnswer, setUserAnswer] = useState('');
   const [score, setScore] = useState(0);
-  // Answers are only known once the server confirms a guess (or reveals the
-  // key at the end), keyed by question index.
+  // Display answers keyed by question index. An answer is only known once a
+  // guess unlocks it or the server reveals the key at the end of the run.
   const [revealed, setRevealed] = useState({});
   const [missed, setMissed] = useState({});
   // Stats for all three difficulties are fetched once per quiz, so switching
-  // difficulty is instant (no request on the interaction path).
+  // difficulty doesn't wait on a request.
   const [timesByDifficulty, setTimesByDifficulty] = useState(emptyTimes);
   const [bestsByDifficulty, setBestsByDifficulty] = useState(null);
   const [gameSummary, setGameSummary] = useState(null);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
-  // Server-issued token proving when this run actually started.
+  // Token from the server that records when this run started.
   const [attemptId, setAttemptId] = useState(null);
 
   const userName = localStorage.getItem('userName');
@@ -88,7 +88,7 @@ export function Quiz() {
           setNotFound(true);
         }
       } catch (error) {
-        // Otherwise the page would hang on "Loading..." forever.
+        // Shows an error instead of leaving the page on "Loading..." forever.
         console.error('Failed to fetch quiz:', error);
         setLoadError(true);
       }
@@ -107,7 +107,7 @@ export function Quiz() {
       .catch(() => {});
   };
 
-  // Prefetch every difficulty's times board and personal bests up front.
+  // Loads every difficulty's times board and personal bests up front.
   useEffect(() => {
     setTimesByDifficulty(emptyTimes);
     setBestsByDifficulty(null);
@@ -131,8 +131,8 @@ export function Quiz() {
     setRecommended(shuffle(allQuizzes.filter((entry) => entry.slug !== slug)).slice(0, 4));
   }, [allQuizzes, slug]);
 
-  // Ends the run: the server computes the score and elapsed time from the
-  // attempt it has been tracking, and returns the full answer key to reveal.
+  // Ends the run. The server checks the reported score against the attempt,
+  // takes the elapsed time from its own clock, and returns the full answer key.
   const finishGame = async (runAttemptId, finalScore) => {
     if (!runAttemptId) {
       setShowLoginPrompt(true);
@@ -184,7 +184,7 @@ export function Quiz() {
       return;
     }
 
-    // Guests get an attempt too — it just isn't scored at the end.
+    // Guests get an attempt too, but it isn't scored at the end.
     let runAttemptId = null;
     try {
       const response = await fetch('/api/attempt', {
@@ -198,7 +198,7 @@ export function Quiz() {
     } catch (error) {
       console.error('Failed to start attempt:', error);
     }
-    // Never leave Play looking like a dead button.
+    // Shows an error so a failed start doesn't make Play look broken.
     if (!runAttemptId) {
       setActionError("Couldn't start the quiz. Check your connection and try again.");
       return;
@@ -221,7 +221,7 @@ export function Quiz() {
     setShowAnswers(true);
     setShowOptions(true);
     setGameInfo(false);
-    // Local placeholder; the server response fills in the authoritative values.
+    // A local placeholder until the server's response fills in the final values.
     setGameSummary({
       score: finalScore,
       total: questions.length,
@@ -235,8 +235,8 @@ export function Quiz() {
     endGame(timeLeft, attemptId, score);
   };
 
-  // Matching happens locally against the locked answers, so typing costs no
-  // network requests. A guess only decrypts the answer it actually matches.
+  // Guesses are matched locally against the locked answers, so typing doesn't
+  // send any network requests. A guess only decrypts the answer it matches.
   const AnswerChange = async (value) => {
     setUserAnswer(value);
     const guess = normalize(value);
@@ -264,9 +264,9 @@ export function Quiz() {
     }
   };
 
-  // Marks the document while a run is in progress so the stylesheet can hide the
-  // site nav on a phone. The class is removed on unmount too, so leaving the page
-  // mid-run cannot strand it.
+  // Marks the document during a run so the stylesheet can hide the site nav on
+  // a phone. The class is also removed on unmount, so leaving mid-run doesn't
+  // leave it behind.
   useEffect(() => {
     if (!gameInfo) {
       return undefined;
@@ -275,13 +275,11 @@ export function Quiz() {
     return () => document.body.classList.remove('quiz-running');
   }, [gameInfo]);
 
-  // iOS shrinks the visual viewport when the keyboard opens but leaves the layout
-  // viewport at full height, and sticky positioning follows the layout viewport —
-  // so `top: 0` resolves to a point hidden behind the keyboard and the bar stops
-  // tracking the visible area. visualViewport.offsetTop is the gap between the
-  // two, so feeding it into the bar's `top` keeps it against the visible edge.
-  // Android honours interactive-widget=resizes-content instead, which keeps this
-  // offset at 0 there.
+  // On iOS, opening the keyboard shrinks the visual viewport but not the layout
+  // viewport, and sticky positioning follows the layout viewport. The answer bar
+  // would end up hidden behind the keyboard, so visualViewport.offsetTop (the
+  // gap between the two) is fed into the bar's `top`. Android supports
+  // interactive-widget=resizes-content instead, so the offset stays 0 there.
   useEffect(() => {
     const viewport = window.visualViewport;
     if (!gameInfo || !viewport) {
@@ -317,9 +315,8 @@ export function Quiz() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeLeft]);
 
-  // Correct guesses flash green; answers missed at the end flash brick red.
-  // The check/cross marks carry the same meaning as the colour, so the result
-  // is readable without relying on colour vision.
+  // Correct guesses flash green and answers missed at the end flash red. The
+  // check and cross marks show the same result, so it doesn't rely on color alone.
   const answerCell = (index) => {
     if (revealed[index] !== undefined) {
       return (
@@ -366,8 +363,8 @@ export function Quiz() {
     return <main className="container">Loading...</main>;
   }
 
-  // Twenty questions read better as two ten-row tables than one long scroll.
-  // Splitting at the halfway point keeps a short custom quiz in a single table.
+  // Quizzes with more than ten questions are split into two tables at the
+  // halfway point, which reads better than one long scroll. Shorter ones stay in one.
   const halfSize = Math.ceil(questions.length / 2);
   const questionColumns = questions.length > 10
     ? [questions.slice(0, halfSize), questions.slice(halfSize)]

@@ -6,8 +6,8 @@ import { QuizCard, fetchQuizStatuses } from '../quizCard';
 import { RandomQuiz } from '../randomQuiz';
 import './main.css';
 
-// Escapes only what could break out of a quoted CSS url(). encodeURI would
-// double-encode URLs that already contain percent escapes (e.g. %20 -> %2520).
+// Escapes only the characters that could break out of a quoted CSS url().
+// encodeURI isn't used because it would double-encode existing escapes (%20 -> %2520).
 const cssUrl = (url) => url.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 
 export function Main() {
@@ -27,7 +27,7 @@ export function Main() {
         const picks = shuffle(data).slice(0, 8);
         setFeatured(picks);
         setRecommended(shuffle(data).slice(0, 4));
-        // Background for the view-all tile: prefer a quiz NOT already on show.
+        // The view-all tile's background prefers a quiz that isn't already shown.
         const featuredSlugs = new Set(picks.map((quiz) => quiz.slug));
         const pool = data.filter((quiz) => quiz.image && !featuredSlugs.has(quiz.slug));
         const fallback = data.filter((quiz) => quiz.image);

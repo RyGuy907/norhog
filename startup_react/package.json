@@ -1,7 +1,8 @@
 {
-  "name": "startup_react",
+  "name": "norhog",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "description": "Frontend for the Norhog history quiz site",
   "type": "module",
   "scripts": {
     "dev": "vite",

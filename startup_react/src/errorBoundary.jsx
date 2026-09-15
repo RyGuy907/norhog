@@ -1,6 +1,7 @@
 import { Component } from 'react';
 
-// Without this, a render error anywhere blanks the whole site.
+// Catches render errors and shows a fallback. Without it, an error in any
+// component leaves the whole site blank.
 export class ErrorBoundary extends Component {
   constructor(props) {
     super(props);

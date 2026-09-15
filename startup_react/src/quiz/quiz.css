@@ -1,5 +1,5 @@
-/* The card in the menu shows a deliberate crop; here the picture is the point,
-   so show all of it — contain rather than cover, so nothing is cut off. */
+/* Menu cards crop the image, but on the quiz page the whole picture is shown
+   (contain instead of cover) so nothing is cut off. */
 .quiz-header-image {
   max-width: min(100%, 420px);
   max-height: 300px;
@@ -12,8 +12,8 @@
   display: block;
 }
 
-/* Provenance line for the picture above: what it is and where it came from.
-   Lighter and italic so it reads as a caption, not as the quiz description. */
+/* Caption saying what the picture is and where it came from. It is lighter and
+   italic so it reads as a caption instead of the quiz description. */
 .quiz-image-caption {
   max-width: min(100%, 420px);
   margin-bottom: 14px;
@@ -129,8 +129,8 @@ fieldset.difficulty input[type='radio'] {
 }
 
 fieldset.difficulty label {
-  /* 2px so the difficulty colour actually reads as an outline; the padding drops
-     by 1px to keep the pill the same overall size it was at 1px. */
+  /* A 2px border so the difficulty color reads as an outline, with 1px less
+     padding to keep the pill the same size. */
   padding: 6px 17px;
   border: 2px solid var(--line);
   border-radius: 999px;
@@ -140,8 +140,8 @@ fieldset.difficulty label {
   transition: background-color 0.15s, color 0.15s, border-color 0.15s;
 }
 
-/* A tint rather than a border colour, so hovering does not overwrite the
-   difficulty's own outline. */
+/* Hover uses a tint instead of a border color so it doesn't replace the
+   difficulty's outline. */
 fieldset.difficulty label:hover {
   background-color: rgba(18, 38, 58, 0.05);
 }
@@ -153,12 +153,10 @@ fieldset.difficulty input[type='radio']:focus-visible + label {
   outline-offset: 2px;
 }
 
-/* Green / amber / red for easy / medium / hard: outlined while unselected, and
-   filled once chosen. These are the palette's existing accents rather than new
-   colours, so the pills read in the same family as the green and brick already
-   used to flash correct and missed answers.
-   Keyed off the label's `for`, which already carries the level, so the markup
-   needs no extra class. */
+/* Green, amber, and red for easy, medium, and hard, outlined until selected and
+   filled once chosen. They reuse the palette's accent colors, the same green and
+   red that flash for correct and missed answers. The selectors key off the
+   label's `for` attribute, which already names the level. */
 fieldset.difficulty label[for='radio-easy'] {
   border-color: var(--green);
 }
@@ -177,9 +175,8 @@ fieldset.difficulty label.selected[for='radio-easy'] {
   color: #fff;
 }
 
-/* Navy on gold rather than white: white on this gold is about 3.4:1, under the
-   4.5:1 needed at this size, and dark-on-amber is the conventional treatment
-   anyway. It also matches .btn-secondary, which is already gold with navy text. */
+/* Navy text on gold instead of white. White on this gold is about 3.4:1
+   contrast, under the 4.5:1 needed at this size, and navy matches .btn-secondary. */
 fieldset.difficulty label.selected[for='radio-medium'] {
   background-color: var(--gold);
   border-color: var(--gold);
@@ -193,19 +190,14 @@ fieldset.difficulty label.selected[for='radio-hard'] {
 }
 
 /* Game controls */
-/* Rides along at the top of the viewport during a run, so the answer box, the
-   clock and the score stay reachable while scrolling the question list. Without
-   this the questions and the input are at opposite ends of the page, which on a
-   phone means scrolling up and back for every single answer.
-   Nothing above this in the tree clips overflow and the site header does not
-   stick, so top: 0 is free. The negative side margins cancel the container's
-   12px gutter so the background reaches the page edges instead of letting rows
-   slide past in the margin. */
+/* Sticks to the top of the viewport during a run, so the answer box, clock, and
+   score stay in reach while scrolling the questions. Otherwise a phone user has
+   to scroll up and back down for every answer. The negative side margins cancel
+   the container's 12px gutter so the background reaches the page edges. */
 .game-bar {
   position: sticky;
-  /* Normally 0. While an on-screen keyboard is open the quiz page sets this to
-     the gap between the layout and visual viewports, so the bar stays against
-     the edge the user can actually see. */
+  /* Normally 0. While an on-screen keyboard is open, the quiz page sets this to
+     the gap between the layout and visual viewports so the bar stays visible. */
   top: var(--keyboard-offset, 0px);
   z-index: 20;
   display: flex;
@@ -240,21 +232,19 @@ fieldset.difficulty label.selected[for='radio-hard'] {
   border-radius: 8px;
 }
 
-/* Keep the answer box on its own full-width row on a phone rather than
-   letting the timer and score push it around. */
+/* On a phone the answer box gets its own full-width row so the timer and score
+   don't squeeze it. */
 @media (max-width: 575px) {
   #timer, #score {
     width: calc(50% - 5px);
     font-size: 1.4rem;
   }
 
-  /* Two rows rather than three now that the bar is pinned: clock and score share
-     the first, answer box and End share the second. Wrapping the input and the
-     button onto separate full-width rows would leave a sticky bar tall enough to
-     cover a quarter of a phone screen.
-     The order matches the DOM, so the visual order and the tab order agree. */
-  /* Basis well under the space left by the End button, so subpixel rounding
-     cannot tip it onto a third row — it grows to fill whatever remains. */
+  /* Two rows: the clock and score on the first, the answer box and End on the
+     second. Three rows would make the sticky bar cover too much of a phone
+     screen. The visual order matches the DOM, so tab order agrees with it. */
+  /* A small flex basis so rounding can't push the input onto a third row. It
+     grows to fill the space left by the End button. */
   #answerbox {
     flex: 1 1 50%;
     min-width: 0;
@@ -305,8 +295,8 @@ fieldset.difficulty label.selected[for='radio-hard'] {
 }
 
 /* Question/answer table */
-/* With twenty questions a run renders as two ten-row tables. Side by side on a
-   desktop, stacked on narrower screens where two columns would crush the text. */
+/* Twenty questions render as two ten-row tables, side by side on desktop and
+   stacked on narrower screens where two columns would crush the text. */
 .answer-tables {
   display: flex;
   flex-direction: column;

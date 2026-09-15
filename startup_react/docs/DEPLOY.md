@@ -1,7 +1,13 @@
-# Deployment Checklist — AWS EC2 + Caddy + MongoDB Atlas
+# Deployment: AWS EC2, Caddy, and MongoDB Atlas
 
-One-time setup for hosting Norhog on AWS. After this, every deploy is just
-`./deployService.sh -k key.pem -h norhog.com -s startup`.
+One-time setup for hosting Norhog on AWS. After this, a manual deploy is
+`./deployService.sh -k key.pem -h yourdomain.com -s startup`, and pushing to
+`main` deploys automatically (see [CI/CD](#9-cicd) at the end).
+
+Hosting costs roughly $8-9 a month plus the domain: about $3.80 for a t3.nano,
+$3.65 for the public IPv4 address (charged on any public address since February
+2024), and under a dollar for the EBS volume. Set a billing alert before
+launching rather than after the first bill.
 
 ## 1. MongoDB Atlas (free)
 
@@ -43,10 +49,9 @@ One-time setup for hosting Norhog on AWS. After this, every deploy is just
      that inherits broad permissions with `UNPROTECTED PRIVATE KEY FILE`. Move it out
      of `Downloads` (which inherits the whole profile's ACLs) and restrict it:
      ```powershell
-     icacls "$env:USERPROFILE\keys\kpair1.pem" /inheritance:r
-     icacls "$env:USERPROFILE\keys\kpair1.pem" /grant:r "$($env:USERNAME):(R)"
+     icacls "$env:USERPROFILE\keys\yourkey.pem" /inheritance:r
+     icacls "$env:USERPROFILE\keys\yourkey.pem" /grant:r "$($env:USERNAME):(R)"
      ```
-     This deployment uses `~/keys/kpair1.pem`.
    - Security group inbound rules:
      - SSH (22) — *your IP only*
      - HTTP (80) — anywhere
@@ -108,22 +113,19 @@ EC2 → Elastic IPs → **Allocate** → **Associate** with the instance.
 Tick "Allow this Elastic IP address to be reassociated" so replacing the instance
 later is one action rather than two.
 
-**This deployment:** `44.231.115.187`, region `us-west-2`, instance
-`i-054760b34c781e845`.
-
-Now add that IP to Atlas → Network Access as `44.231.115.187/32` (step 1.3). The
+Now add that IP to Atlas → Network Access as `<elastic-ip>/32` (step 1.3). The
 service exits at boot with a connection error until you do.
 
 ## 4. Domain
 
-`norhog.com` is registered and delegated to Route 53 nameservers.
+Register the domain and delegate it to Route 53 nameservers.
 
-Route 53 → Hosted zones → `norhog.com` → **Create record**, twice:
+Route 53 → Hosted zones → your domain → **Create record**, twice:
 
 | Record name | Type | Value | TTL |
 |---|---|---|---|
-| *(leave empty — the apex)* | A | `44.231.115.187` | 300 |
-| `www` | A | `44.231.115.187` | 300 |
+| *(leave empty, the apex)* | A | `<elastic-ip>` | 300 |
+| `www` | A | `<elastic-ip>` | 300 |
 
 A short TTL (300s) while setting up means mistakes cost five minutes, not a day.
 Raise it to 3600 once things are stable.
@@ -132,8 +134,8 @@ Wait for propagation before touching Caddy — certificate provisioning fails if
 record is not live yet, and Caddy then backs off before retrying:
 
 ```bash
-nslookup norhog.com 8.8.8.8       # must show 44.231.115.187
-nslookup www.norhog.com 8.8.8.8   # must show 44.231.115.187
+nslookup yourdomain.com 8.8.8.8       # must show the Elastic IP
+nslookup www.yourdomain.com 8.8.8.8   # must show the Elastic IP
 ```
 
 ## 5. Caddy
@@ -141,13 +143,20 @@ nslookup www.norhog.com 8.8.8.8   # must show 44.231.115.187
 Replace `/etc/caddy/Caddyfile` on the instance with:
 
 ```
-norhog.com {
+yourdomain.com {
 	encode zstd gzip
 	reverse_proxy localhost:4000
+
+	header {
+		Strict-Transport-Security "max-age=15552000"
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+	}
 }
 
-www.norhog.com {
-	redir https://norhog.com{uri} permanent
+www.yourdomain.com {
+	redir https://yourdomain.com{uri} permanent
 }
 ```
 
@@ -157,16 +166,20 @@ Two things here are not in the stock template and both matter for this app:
   does not, and no compression middleware is installed, so without this line the
   272 kB JS bundle goes over the wire uncompressed. With it, ~85 kB.
 - **`www` redirects to the apex rather than serving it.** Session cookies are
-  scoped to the host, so a user who logs in on `www.norhog.com` and later lands on
-  `norhog.com` would appear logged out. One canonical origin avoids that entirely.
+  scoped to the host, so someone who logs in on `www.` and later lands on the
+  apex would appear logged out. One canonical origin avoids that.
+- **The headers are also set by the service**, so they survive if Caddy is
+  replaced. Setting them in both places is harmless.
 
 ```bash
 sudo systemctl restart caddy
 sudo systemctl status caddy --no-pager    # confirm active, no cert errors
 ```
 
-Caddy provisions HTTPS certificates automatically (needs the DNS record live first)
-and proxies WebSocket upgrades natively — `wss://norhog.com/ws` just works.
+Caddy provisions HTTPS certificates automatically once the DNS record is live,
+and it proxies WebSocket upgrades natively, so `wss://yourdomain.com/ws` works
+with no extra configuration. It also forwards the original `Host` header, which
+the service's WebSocket origin check depends on.
 
 ## 6. First deploy
 
@@ -177,7 +190,7 @@ and the script symlinks them back in. Do this before the first deploy or the scr
 will stop and tell you to:
 
 ```bash
-ssh -i ~/keys/yourkey.pem ubuntu@norhog.com
+ssh -i ~/keys/yourkey.pem ubuntu@yourdomain.com
 mkdir -p ~/config/startup
 nano ~/config/startup/dbConfig.json     # paste the same contents as your local copy
 chmod 600 ~/config/startup/dbConfig.json
@@ -190,7 +203,7 @@ This file is written once and never touched again by a deploy.
 From `startup_react/` on your machine (Git Bash on Windows):
 
 ```bash
-./deployService.sh -k ~/keys/yourkey.pem -h norhog.com -s startup
+./deployService.sh -k ~/keys/yourkey.pem -h yourdomain.com -s startup
 ```
 
 The script builds the frontend, bundles it with the service, and copies everything to
@@ -198,7 +211,7 @@ The script builds the frontend, bundles it with the service, and copies everythi
 `pm2 restart startup`, which fails the very first time — start it once manually:
 
 ```bash
-ssh -i ~/keys/yourkey.pem ubuntu@norhog.com
+ssh -i ~/keys/yourkey.pem ubuntu@yourdomain.com
 cd services/startup
 pm2 start index.js -n startup --env production
 pm2 save
@@ -228,8 +241,10 @@ pm2 startup   # follow the printed instructions so pm2 survives reboots
 
 Optional but recommended — without it the admin quiz form only accepts pasted image URLs.
 
-1. S3 → **Create bucket** (e.g. `norhog-quiz-images`, us-west-2, same region as the EC2 instance).
-   - Uncheck "Block all public access" (we'll scope public access to reads of `images/*` only).
+1. S3 → **Create bucket** (for example `norhog-quiz-images`, in the same region as
+   the EC2 instance).
+   - Uncheck "Block all public access". Public access is then scoped to reads of
+     `images/*` only.
 2. Bucket → Permissions → **Bucket policy**:
    ```json
    {
@@ -248,7 +263,7 @@ Optional but recommended — without it the admin quiz form only accepts pasted 
    [{
      "AllowedHeaders": ["*"],
      "AllowedMethods": ["PUT"],
-     "AllowedOrigins": ["https://norhog.com", "http://localhost:5173", "http://localhost:4000"],
+     "AllowedOrigins": ["https://yourdomain.com", "http://localhost:5173", "http://localhost:4000"],
      "ExposeHeaders": []
    }]
    ```
@@ -271,10 +286,64 @@ Optional but recommended — without it the admin quiz form only accepts pasted 
 
 ## 8. Verify
 
-- `https://norhog.com` loads the app over HTTPS
+- `https://yourdomain.com` loads the app over HTTPS
 - register / login works; cookie visible in DevTools (httpOnly)
 - play a quiz logged in → score appears on the leaderboard
 - leaderboard open in a second browser updates live on submission
 - admin account (role set in Atlas) can create a quiz, including an image upload
 - `pm2 logs startup` shows "Connected to MongoDB Atlas"
 - reboot test: `sudo reboot`, site comes back up on its own
+
+## 9. CI/CD
+
+`.github/workflows/ci.yml` runs lint, both test suites, and a production build on
+every push. On `main`, a gated deploy job then ships the build.
+
+### Why it uses SSM instead of SSH
+
+The obvious design is for CI to `scp` and `ssh` into the instance, but that
+doesn't work here: the security group only allows port 22 from one home IP, and
+GitHub's runners come from a large rotating pool. Opening 22 to the world would
+trade a real security property for convenience. A self-hosted runner on the
+instance was also ruled out, since a t3.nano has only about 140 MB of RAM free.
+
+Instead, CI builds a tarball, uploads it to S3, and calls `ssm:SendCommand` to run
+`deployFromS3.sh` on the instance. GitHub never connects to the server, so port 22
+stays closed and there is no SSH key in the repository. Authentication uses GitHub
+OIDC federation into an IAM role, so there are no long-lived AWS keys either.
+
+Deploy is a job inside `ci.yml` rather than a separate workflow, so `needs:` can
+gate it on the test jobs directly. A separate workflow would need `workflow_run`,
+which fires regardless of outcome and then needs its own conclusion check.
+
+### Configuration
+
+| Where | Name | Value |
+|---|---|---|
+| GitHub secret | `AWS_DEPLOY_ROLE_ARN` | the deploy role's ARN |
+| GitHub variable | `DEPLOY_BUCKET` | the artifact bucket |
+| GitHub variable | `INSTANCE_ID` | the EC2 instance id |
+| IAM role (EC2) | `AmazonSSMManagedInstanceCore` plus `s3:GetObject` on the artifact bucket |
+| IAM role (GitHub) | `s3:PutObject`, `ssm:SendCommand`, `ssm:GetCommandInvocation` |
+
+The role's trust policy pins the OIDC subject to
+`repo:<owner>/<repo>:ref:refs/heads/main`. That string has to match exactly, and
+restricting the branch is what stops a pull request from a fork from assuming the
+deploy role. Renaming the repository breaks it until the policy is updated.
+
+### What keeps it safe
+
+- The bundle holds only `*.js` and the two package manifests. The workflow fails
+  the build if `dbConfig.json` appears in it, and the server keeps its own copy.
+- `deployFromS3.sh` keeps one previous release and restores it if `npm ci` or the
+  smoke check fails.
+- `NODE_ENV` is exported before `pm2 restart --update-env`, because pm2 takes the
+  calling shell's environment and SSM runs commands with an empty one. Without
+  it, every deploy would quietly drop the flag that makes cookies `Secure`.
+- The smoke check tests the port rather than the process, since pm2 reporting
+  "online" doesn't mean anything is listening.
+
+One weakness worth knowing: the deploy job runs `npm ci`, which executes
+dependency install scripts, in a job that can assume the deploy role. A
+compromised dependency could reach that role. Splitting the build and deploy into
+separate jobs, or installing with `--ignore-scripts`, would close it.

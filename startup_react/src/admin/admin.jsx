@@ -73,7 +73,7 @@ export function Admin() {
 
   const startEdit = async (slug) => {
     try {
-      // The public quiz payload omits answers, so editing loads the full one.
+      // The public quiz payload has no readable answers, so editing loads the full quiz.
       const response = await fetch(`/api/quiz/${slug}/full`);
       if (response.ok) {
         setFormInitial(await response.json());

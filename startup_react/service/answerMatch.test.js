@@ -38,8 +38,8 @@ describe('acceptedAnswers', () => {
   });
 
   it('does expand words that really are valid numerals', () => {
-    // "MIX" is legitimately 1009, so both spellings are accepted. Documented
-    // here so the round-trip check isn't "fixed" away later.
+    // "MIX" really is 1009, so both spellings are accepted. This is expected
+    // behavior, not a bug in the round-trip check.
     expect([...acceptedAnswers({ answer: 'Mix' })]).toEqual(['mix', '1009']);
   });
 

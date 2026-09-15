@@ -1,10 +1,13 @@
 import crypto from 'crypto';
 
-// Answers are never sent in the clear. Each accepted spelling is turned into
-// an id (for matching a guess) plus a ciphertext of the display answer keyed
-// by that same spelling — so the browser can only reveal an answer it has
-// actually guessed. A fresh salt per response keeps the ids from being
-// catalogued across page loads.
+// Answers are never sent in plain text. Each accepted spelling becomes an id
+// (for matching a guess) and a ciphertext of the display answer keyed by that
+// same spelling, so the browser can only reveal an answer it has actually
+// guessed. A new salt on every response keeps the ids from being collected
+// across page loads.
+//
+// This hides answers from a casual look at the network tab. It is not strong
+// protection against someone brute-forcing short answers offline.
 
 function digest(salt, variant) {
   return crypto.createHash('sha256').update(`${salt}:${variant}`).digest();

@@ -8,8 +8,8 @@ export function Leaderboard() {
   const [scores, setScores] = useState([]);
   const [popular, setPopular] = useState([]);
 
-  // Refetched whenever a score lands, so the sidebar stays in step with the
-  // board beside it rather than going stale until a reload.
+  // Refetched whenever a new score arrives, so the sidebar stays in sync with
+  // the leaderboard next to it.
   const loadPopular = useCallback(() => {
     fetch('/api/quizzes/popular')
       .then((response) => (response.ok ? response.json() : []))
@@ -46,7 +46,7 @@ export function Leaderboard() {
             loadPopular();
           }
         } catch {
-          // A malformed frame shouldn't take the page down.
+          // A malformed message is ignored instead of breaking the page.
         }
       };
 
@@ -54,7 +54,7 @@ export function Leaderboard() {
         console.error('WebSocket error:', error);
       };
 
-      // Reconnect if the connection drops (e.g. service restart).
+      // Reconnects if the connection drops, such as when the service restarts.
       socket.onclose = () => {
         if (!cancelled) {
           retry = setTimeout(connect, 3000);
@@ -66,12 +66,12 @@ export function Leaderboard() {
 
     return () => {
       cancelled = true;
-      // Without clearing this, unmounting mid-backoff opens a stray socket.
+      // Unmounting while a reconnect is pending would otherwise open a stray socket.
       clearTimeout(retry);
       socket.close();
     };
-    // loadPopular is stable (useCallback with no deps), so this still only
-    // connects once — it is listed to keep the dependency check honest.
+    // loadPopular never changes (useCallback with no deps), so this still only
+    // connects once. It is listed to satisfy the dependency lint rule.
   }, [loadPopular]);
 
   const scoreRows = scores.length

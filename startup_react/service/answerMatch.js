@@ -1,6 +1,6 @@
-// Flexible answer matching: answers are stored in display form ("George
-// Washington") and matched against normalized guesses ("washington" via the
-// question's accept list, "louis 16" via roman-numeral conversion, etc.).
+// Flexible answer matching. Answers are stored in display form ("George
+// Washington") and matched against normalized guesses, such as "washington"
+// from the question's accept list or "louis 16" from roman numeral conversion.
 
 const romanValues = { i: 1, v: 5, x: 10, l: 50, c: 100, d: 500, m: 1000 };
 
@@ -31,8 +31,8 @@ function intToRoman(num) {
   return out;
 }
 
-// Lowercase, strip accents and apostrophes, punctuation to spaces, drop a
-// leading "the".
+// Lowercases the text, strips accents and apostrophes, turns other punctuation
+// into spaces, and drops a leading "the".
 export function normalize(text) {
   let t = String(text)
     .toLowerCase()

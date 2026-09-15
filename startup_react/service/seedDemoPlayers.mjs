@@ -1,14 +1,14 @@
 // Seeds fictional demo players and play history so the leaderboard, the
-// per-quiz fastest-times boards and the Most Played ranking have something to
-// show. This is display content in the same spirit as the seeded quizzes — it
-// is documented in the README, and the accounts cannot be logged into.
+// per-quiz fastest-times boards, and the Most Played ranking have something to
+// show. Like the seeded quizzes, this is display content. It is documented in
+// the README, and nobody can log into the accounts.
 //
 //   node seedDemoPlayers.mjs --db quiz            # dry run, prints a preview
 //   node seedDemoPlayers.mjs --db quiz --apply    # writes
 //   node seedDemoPlayers.mjs --db quiz --purge    # removes demo data only
 //
-// --db is required and never defaults, so writing to production is always a
-// deliberate act. Re-running replaces the demo set rather than stacking on it.
+// --db has no default, so writing to production always has to be spelled out.
+// Re-running replaces the demo set instead of adding to it.
 import fs from 'fs';
 import crypto from 'crypto';
 import bcrypt from 'bcrypt';
@@ -32,12 +32,11 @@ if (!DB_NAME) {
   process.exit(1);
 }
 
-// Every demo account lives under this domain, which is what makes the data
-// removable in one query and obviously non-real on inspection.
+// Every demo account uses this email domain, so the data can be removed in one
+// query and is clearly fake when inspected.
 const DEMO_DOMAIN = 'demo.norhog.com';
 
-// Deliberately playful and clearly fictional — these should never read as real
-// people whose activity is being fabricated.
+// Playful names that are clearly fictional, so none of them read as real people.
 const NAMES = [
   'HistoryHawk', 'ClioQueen', 'MarginaliaMax', 'TriviaTiberius', 'BronzeAgeBen',
   'SaltyScribe', 'DustyTome', 'InkwellIvy', 'VellumVic', 'AbacusAnnie',
@@ -48,13 +47,13 @@ const NAMES = [
 const DIFFICULTIES = ['easy', 'medium', 'hard'];
 const POINTS = { easy: 6, medium: 8, hard: 10 };
 const LIMITS = { easy: 300, medium: 480, hard: 600 };
-// Seconds a person plausibly spends per question at each difficulty. Well inside
-// the limits above, which are deliberately generous — a board where every run
-// finished near the buzzer would look manufactured.
+// Seconds a person might spend per question at each difficulty. These sit well
+// inside the time limits, since a board where every run finished near the
+// buzzer would look generated.
 const PACE = { easy: 11, medium: 16, hard: 22 };
 
-// Deterministic PRNG: re-running produces the same fixture instead of drifting,
-// and a preview matches what --apply will write.
+// A seeded random generator, so re-running produces the same data and the dry
+// run matches what --apply writes.
 let seed = 970729;
 const rnd = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
 const pick = (a) => a[Math.floor(rnd() * a.length)];
@@ -78,13 +77,13 @@ if (PURGE) {
 
 const quizzes = await db.collection('quizzes').find().project({ _id: 0, slug: 1, title: 1 }).toArray();
 if (!quizzes.length) {
-  console.error(`No quizzes in "${DB_NAME}" — start the service once so they seed, then re-run.`);
+  console.error(`No quizzes in "${DB_NAME}". Start the service once so they seed, then re-run.`);
   await client.close();
   process.exit(1);
 }
 
-// Each player gets a stable skill and pace so the fastest-times boards look like
-// the same few people are consistently quick, rather than noise.
+// Each player gets a fixed skill and pace, so the same few people show up as
+// consistently quick on the fastest-times boards instead of random noise.
 const players = NAMES.map((displayName, i) => ({
   email: `${displayName.toLowerCase()}@${DEMO_DOMAIN}`,
   displayName,
@@ -106,10 +105,10 @@ const pickPlayer = () => {
   return players[players.length - 1];
 };
 
-// Which quizzes draw the most plays, most popular first. Chosen by hand rather
-// than at random: a real audience gravitates toward the famous topics, so a
-// Most Played board topped by the Silk Road and Victorian Britain would look
-// generated. Anything not listed still gets a baseline of plays.
+// The quizzes that get the most plays, most popular first. These are chosen by
+// hand because real players tend toward the famous topics, and a Most Played
+// board topped by the Silk Road would look generated. Quizzes not listed still
+// get a baseline number of plays.
 const POPULAR_ORDER = [
   'world-war-2', 'ancient-egypt', 'roman-empire', 'world-war-1', 'vikings',
   'ancient-greece', 'cold-war', 'french-revolution', 'space-race', 'civil-war',
@@ -122,7 +121,7 @@ const popularRank = new Map(
 const NOW = Date.UTC(2026, 6, 29);
 const DAY = 86400000;
 
-// score out of 10, from the player's skill adjusted for difficulty.
+// Score out of 10, from the player's skill adjusted for difficulty.
 const rollScore = (player, difficulty) => {
   const p = difficulty === 'easy' ? Math.min(0.97, player.skill + 0.12)
     : difficulty === 'hard' ? Math.max(0.18, player.skill - 0.16)
@@ -132,8 +131,8 @@ const rollScore = (player, difficulty) => {
   return correct;
 };
 
-// Time is driven by the player's pace, with people who know the material
-// finishing a little quicker. Always inside the difficulty's limit.
+// Time comes from the player's pace, and players who know the material finish a
+// little quicker. It always stays inside the difficulty's limit.
 const rollTime = (player, difficulty, score) => {
   const base = PACE[difficulty] * 10 * player.pace;
   const knowledgeBonus = 1 - (score / 10) * 0.18;
@@ -152,7 +151,7 @@ const makeScore = (player, slug, difficulty, forcePerfect = false) => {
     difficulty,
     score,
     total: 10,
-    // Exactly the formula the service uses, so the boards stay self-consistent.
+    // The same formula the service uses, so the boards stay consistent.
     points: Math.round((score / 10) * POINTS[difficulty]),
     timeSpent,
     date: new Date(NOW - daysAgo * DAY - between(0, 82800) * 1000).toISOString(),
@@ -166,14 +165,14 @@ for (const quiz of quizzes) {
   const plays = between(2, 5) + extra;
 
   for (let i = 0; i < plays; i += 1) {
-    // Easy gets tried most; hard is the minority, as with real players.
+    // Easy gets played most and hard the least, which is how real players tend to pick.
     const r = rnd();
     const difficulty = r < 0.46 ? 'easy' : r < 0.79 ? 'medium' : 'hard';
     scores.push(makeScore(pickPlayer(), quiz.slug, difficulty));
   }
 
-  // The per-quiz boards only rank perfect runs, so guarantee a few or most quiz
-  // pages would read "No perfect runs yet". Strong players get them.
+  // The per-quiz boards only rank perfect runs, so each quiz gets a few from the
+  // stronger players. Otherwise most quiz pages would say "No perfect runs yet".
   const strong = players.filter((p) => p.skill > 0.72);
   const guaranteed = rank === undefined ? ['easy'] : DIFFICULTIES;
   for (const difficulty of guaranteed) {
@@ -236,10 +235,10 @@ if (!APPLY) {
 await db.collection('users').deleteMany({ email: demoEmail });
 await db.collection('scores').deleteMany({ user: demoEmail });
 
-// Display names are unique case-insensitively. Purging only clears this script's
-// own accounts, so a name held by anyone else — a real signup, or the local
-// seedDevData fixture — would otherwise surface as a bulk-write dump rather than
-// something readable.
+// Display names are unique regardless of case, and the purge above only clears
+// this script's own accounts. If another account (a real signup or the
+// seedDevData fixture) already holds a name, stop with a readable message
+// instead of a bulk-write error.
 const taken = await db
   .collection('users')
   .find({ nameLower: { $in: players.map((p) => p.nameLower) } })
@@ -258,8 +257,8 @@ const userDocs = await Promise.all(players.map(async (p) => ({
   email: p.email,
   displayName: p.displayName,
   nameLower: p.nameLower,
-  // Hash of bytes that are generated here and never printed or stored, so these
-  // accounts exist for display and cannot be signed into by anyone.
+  // A hash of random bytes that are never printed or stored, so nobody can sign
+  // into these accounts.
   password: await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10),
   token: uuidv4(),
   creationDate: new Date(NOW - p.joinedDaysAgo * DAY).toISOString(),

@@ -25,4 +25,7 @@ service/public
 *.sln
 *.sw?
 dbConfig.json
-.claude/settings.local.json
+.env*
+*.pem
+coverage
+.claude/

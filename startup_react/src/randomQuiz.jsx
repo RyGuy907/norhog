@@ -2,19 +2,18 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchQuizStatuses } from './quizCard';
 
-// "Random" button plus a selector for what it should draw from, shown at the
-// bottom of every Recommended Quizzes box.
+// A "Random" button and a selector for which quizzes it picks from, shown at
+// the bottom of every Recommended Quizzes box.
 //
-// `quizzes` is the pool to choose from, so each page can decide what is eligible
-// — the quiz page passes everything except the one you are already on.
+// `quizzes` is the pool to choose from, so each page decides what is eligible.
+// The quiz page, for example, passes every quiz except the current one.
 const MODES = ['any', 'unplayed', 'played'];
 const MODE_KEY = 'norhog.randomMode';
 
-// Persisted because every press navigates away and remounts this component —
-// without it the selector reset to "any" after each use, so choosing "unplayed"
-// twice in a row meant re-picking it every time.
-// Validated on read: localStorage is user-writable, and an unrecognised value
-// would otherwise filter the pool down to nothing.
+// The mode is saved because each press navigates away and remounts this
+// component, which would otherwise reset the selector to "any" every time.
+// It is checked on read since localStorage can hold anything, and an unknown
+// value would filter the pool down to nothing.
 const storedMode = () => {
   try {
     const saved = localStorage.getItem(MODE_KEY);
@@ -27,8 +26,8 @@ const storedMode = () => {
 export function RandomQuiz({ quizzes, className = '' }) {
   const navigate = useNavigate();
   const [mode, setMode] = useState(storedMode);
-  // Slugs the signed-in user has finished. Guests get an empty set, which makes
-  // "unplayed" behave as "any" for them — accurate, since they have played none.
+  // Slugs the signed-in user has finished. Guests get an empty set, so for them
+  // "unplayed" works the same as "any".
   const [played, setPlayed] = useState(new Set());
   const [message, setMessage] = useState('');
   const signedIn = Boolean(localStorage.getItem('userName'));
@@ -58,7 +57,7 @@ export function RandomQuiz({ quizzes, className = '' }) {
   const emptyMessage = () => {
     if (mode === 'played') {
       return signedIn
-        ? "You haven't finished a quiz yet — play one and it'll show up here."
+        ? "You haven't finished a quiz yet. Play one and it'll show up here."
         : 'Sign in and Norhog will keep track of the quizzes you have played.';
     }
     if (mode === 'unplayed') {
@@ -92,8 +91,8 @@ export function RandomQuiz({ quizzes, className = '' }) {
           try {
             localStorage.setItem(MODE_KEY, event.target.value);
           } catch {
-            // Private browsing can refuse writes; the picker still works, it
-            // just will not remember the choice.
+            // Private browsing can refuse the write. The picker still works but
+            // won't remember the choice.
           }
         }}
       >

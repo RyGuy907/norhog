@@ -36,8 +36,8 @@ export function Profile() {
     setAuthState(AuthState.Unauthenticated);
     setTotalPoints(0);
     setMyScores([]);
-    // Someone else may log in on this browser; don't leave the previous
-    // account's play history on screen.
+    // Someone else may log in on this browser next, so the previous account's
+    // play history is cleared from the screen.
     setFavorites([]);
     setCreationDate('');
     setDangerOpen(false);
@@ -146,7 +146,7 @@ export function Profile() {
     navigate('/');
   };
 
-  // Restore the session from the auth cookie on mount.
+  // Restores the session from the auth cookie on mount.
   useEffect(() => {
     const restoreSession = async () => {
       try {
@@ -170,14 +170,14 @@ export function Profile() {
       .catch(() => {});
   }, []);
 
-  // The server derives the account from the session cookie, so this needs no
-  // argument — and one user can't request another's history.
+  // The server gets the account from the session cookie, so this takes no
+  // argument and one user can't request another's history.
   const fetchFavorites = async () => {
     try {
       const response = await fetch('/api/quizzes/favorites');
       setFavorites(response.ok ? await response.json() : []);
     } catch {
-      // Supplementary board; a failure here shouldn't disturb the profile.
+      // This board is extra, so a failure here shouldn't affect the rest of the profile.
     }
   };
 

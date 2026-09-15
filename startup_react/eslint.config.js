@@ -38,8 +38,7 @@ export default [
         sourceType: 'module',
       },
     },
-    // 'detect' reads the installed React rather than pinning a version here,
-    // which had drifted a major behind.
+    // 'detect' reads the installed React version instead of pinning one here.
     settings: { react: { version: 'detect' } },
     plugins: {
       react,
@@ -53,11 +52,10 @@ export default [
       ...reactHooks.configs.recommended.rules,
       'react/jsx-no-target-blank': 'off',
       'react/prop-types': 'off',
-      // New in eslint-plugin-react-hooks 7. It flags five real spots (two
-      // fetch-on-mount effects, two derived-state effects, and the timer's
-      // end-of-run effect), none of which is a correctness bug — they cost an
-      // extra render. Demoted to a warning so it stays visible without gating
-      // CI; the cleanup is tracked as post-launch work.
+      // New in eslint-plugin-react-hooks 7. It flags a few effects that set
+      // state (fetch-on-mount, derived state, and the timer's end-of-run check).
+      // None of them are bugs, they only cost an extra render, so the rule is a
+      // warning that stays visible without failing CI.
       'react-hooks/set-state-in-effect': 'warn',
       'react-refresh/only-export-components': [
         'warn',
@@ -66,9 +64,9 @@ export default [
     },
   },
   {
-    // Build config at the repo root runs in Node, not the browser, so it needs
-    // node globals — the block above would otherwise leave `process` undefined.
-    // Last in the list because flat config lets later blocks win.
+    // Config files at the root run in Node, so they need node globals or the
+    // block above leaves `process` undefined. This block is last because later
+    // blocks win in flat config.
     files: ['*.config.js'],
     languageOptions: { globals: globals.node },
   },

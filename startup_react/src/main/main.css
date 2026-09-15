@@ -44,8 +44,8 @@
   color: var(--ink);
 }
 
-/* The image fills the whole tile; the title sits over it at the bottom on a
-   dark scrim so it stays readable against any artwork. */
+/* The image fills the whole tile, and the title sits over the bottom on a dark
+   gradient so it stays readable against any artwork. */
 .quiz-card-image {
   position: absolute;
   inset: 0;
@@ -55,8 +55,8 @@
   object-position: center;
 }
 
-/* Portraits: keep the top of the image (heads, faces, upper composition)
-   rather than centring and losing it to the crop. */
+/* Portrait images keep their top edge, where faces usually are, instead of
+   being cropped from the center. */
 .quiz-card-image.portrait {
   object-position: center top;
 }
@@ -171,7 +171,7 @@
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
 }
 
-/* Four across on desktop rather than letting auto-fill squeeze in five. */
+/* Four across on desktop instead of letting auto-fill squeeze in five. */
 @media (min-width: 992px) {
   .gallery-grid {
     grid-template-columns: repeat(4, 1fr);

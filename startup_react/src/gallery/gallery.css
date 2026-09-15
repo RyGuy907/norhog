@@ -14,21 +14,20 @@
   flex: 0 1 220px;
 }
 
-/* The shared picker carries the chrome it needs inside a Recommended box - a top
-   border and padding. In this toolbar it is just another control in the row, so
-   both are dropped. Compound selector because .rec-random in App.css matches at
-   the same specificity and would otherwise win on order. */
+/* Inside a Recommended box the picker has a top border and padding. In this
+   toolbar it is just another control in the row, so both are removed. The
+   compound selector is needed because .rec-random in App.css has the same
+   specificity and would otherwise win. */
 .rec-random.gallery-random {
   border-top: none;
   flex: 0 0 auto;
   padding: 0;
 }
 
-/* In the sidebar boxes the select stretches to fill the row, but its 7rem flex
-   basis is wider than the space the toolbar reserves for it, so it wrapped under
-   the button. Here it sizes to its content, keeping button + dropdown on one
-   line; when the row is tight the whole picker wraps below as a single unit
-   instead of squeezing the search bar. */
+/* In the sidebar the select stretches to fill its row, but here that would push
+   it under the button. Sizing it to its content keeps the button and dropdown on
+   one line, and on a tight row the whole picker wraps as one unit instead of
+   squeezing the search bar. */
 .rec-random.gallery-random .rec-random-select {
   flex: 0 0 auto;
 }

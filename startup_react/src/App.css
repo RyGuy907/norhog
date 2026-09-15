@@ -37,8 +37,8 @@ h1, h2, h3, h4, .brand h1 {
   font-family: Georgia, 'Times New Roman', serif;
 }
 
-/* main.container, not main: Bootstrap's .container would otherwise win on
-   specificity and these would silently do nothing. */
+/* Includes main.container because Bootstrap's .container would otherwise
+   outrank a plain `main` selector. */
 main,
 main.container {
   flex: 1;
@@ -102,15 +102,11 @@ main h2 {
   color: #fff;
 }
 
-/* The mark renders at 58px but only occupies 32px of layout.
-   A flex container sizes to its items' MARGIN boxes, so the -13px top and bottom
-   margins cancel 26px of the height: 58 - 26 = 32, which matches the wordmark and
-   leaves the bar at the 61px it was before any logo existed. The extra height
-   spills into the header's 14px padding instead of pushing the bar taller.
-   Nothing here sets overflow: hidden, so the spill is not clipped. */
-/* The margins still sum to -26px, so the layout contribution is unchanged, but
-   shifting 2px of it from top to bottom drops him until his feet sit on the gold
-   rule under the bar instead of floating just above it. */
+/* The logo renders at 58px tall but only takes up 32px of layout. Flex items are
+   sized by their margin boxes, so the negative margins (-26px total) cancel the
+   extra height and the bar stays the same height as the wordmark. The overflow
+   spills into the header's padding. The bottom margin is 4px larger than the top
+   so the hog's feet sit on the gold rule under the bar. */
 .brand-mark {
   height: 58px;
   width: auto;
@@ -120,10 +116,10 @@ main h2 {
   margin-bottom: -15px;
 }
 
-/* The header bar wraps on narrow screens; shrink the mark so the logo and
-   wordmark still fit on one line before the nav drops below them. */
+/* The header bar wraps on narrow screens, so the logo shrinks to keep it and the
+   wordmark on one line above the nav. */
 @media (max-width: 575px) {
-  /* Same trick, scaled down: 44 - 16 = 28px of layout. */
+  /* The same negative-margin approach, scaled down: 44 - 16 = 28px of layout. */
   .brand-mark {
     height: 44px;
     margin-top: -8px;
@@ -182,13 +178,10 @@ main h2 {
   color: var(--gold);
 }
 
-/* Laid out in a row the nav needs ~377px, against 335px of content width on a
-   375px phone, so the last item was being clipped mid-word — and an admin's
-   fifth item made it worse. Tightening the padding and letter-spacing gets four
-   items onto one line, and wrapping catches the rest rather than letting them
-   run off the edge.
-   This has to sit after the base .menu rules above: it matches at the same
-   specificity, so an earlier media query would simply lose to them. */
+/* In one row the nav needs about 377px, but a 375px phone has 335px of content
+   width. Tighter padding and letter-spacing fit four items on a line, and
+   wrapping handles the rest (such as an admin's fifth item). This block has to
+   come after the base .menu rules since it has the same specificity. */
 @media (max-width: 575px) {
   .menu {
     flex-wrap: wrap;
@@ -201,8 +194,8 @@ main h2 {
     letter-spacing: 0.03em;
   }
 
-  /* Site navigation is not useful mid-run, and on a phone the keyboard is
-     already claiming half the screen — so hand those pixels to the questions.
+  /* Navigation isn't needed mid-run, and on a phone the keyboard already takes
+     half the screen, so the header is hidden to leave room for the questions.
      The quiz page adds this class while a run is in progress. */
   body.quiz-running .header {
     display: none;
@@ -300,8 +293,8 @@ button, .btn {
   border-bottom: 2px solid var(--gold);
 }
 
-/* Random picker pinned to the bottom of a Recommended Quizzes box. The top
-   border separates it from the list above; padding matches the box's header. */
+/* Random picker at the bottom of a Recommended Quizzes box. The top border
+   separates it from the list above, and the padding matches the box's header. */
 .rec-random {
   align-items: center;
   border-top: 1px solid var(--line);
@@ -311,10 +304,9 @@ button, .btn {
   padding: 10px 16px;
 }
 
-/* Deliberately not using Bootstrap's .btn class: `.rec-box .btn` forces
-   width: 100% and a transparent background for the quiz links in the list above,
-   and at (0,2,0) it outranks this rule. Styling a bare button sidesteps that
-   instead of escalating specificity. */
+/* Doesn't use Bootstrap's .btn class, because `.rec-box .btn` (meant for the quiz
+   links above) forces full width and a transparent background and would outrank
+   this rule. A plain button avoids a specificity fight. */
 .rec-random-btn {
   background-color: var(--navy);
   border: none;
@@ -426,8 +418,7 @@ button, .btn {
 .scroll-table .styled-table {
   margin-bottom: 0;
   box-shadow: none;
-  /* border-collapse and the base overflow:hidden both break
-     position: sticky on the header row */
+  /* Collapsed borders and the base overflow: hidden both break the sticky header row. */
   border-collapse: separate;
   border-spacing: 0;
   overflow: visible;
@@ -441,17 +432,15 @@ button, .btn {
   box-shadow: 0 2px 0 var(--gold);
 }
 
-/* The Quiz Manager grows with every quiz added, so cap it at ten rows plus the
-   pinned header: 45.8px header + 10 x 52px rows. Its rows are taller than the
-   profile tables on the base .scroll-table height because each one carries a
-   31px btn-sm alongside the 10px cell padding. */
+/* The Quiz Manager grows with every quiz, so it is capped at ten rows plus the
+   pinned header (45.8px + 10 x 52px). Its rows are taller than the profile
+   tables because each one holds a small button. */
 .scroll-table-quizzes {
   max-height: 566px;
 }
 
-/* A panel of quiz tiles under a navy header. Used by the leaderboard's Most
-   Played board and the profile's Favourites board, so it lives here rather than
-   in either page's stylesheet. */
+/* A panel of quiz tiles under a navy header. Both the leaderboard's Most Played
+   board and the profile's Favorites board use it, so it lives here. */
 .quiz-board {
   background-color: var(--card);
   border-radius: 10px;
@@ -463,8 +452,8 @@ button, .btn {
   background-color: var(--navy);
   border-bottom: 2px solid var(--gold);
   color: #fff;
-  /* `main h2 { display: inline-block }` above would otherwise shrink this bar to
-     the width of its text and leave the rest of the header white. */
+  /* Overrides `main h2 { display: inline-block }`, which would shrink the bar to
+     the width of its text. */
   display: block;
   font-size: 1.05rem;
   font-weight: 600;
@@ -479,9 +468,8 @@ button, .btn {
   padding: 16px;
 }
 
-/* Two tiles per row. These are the same QuizCard used on the home page and in
-   the gallery, so the title overlay, gold underline and portrait top-crop all
-   come along for free — the only addition is the count in quiz-card-meta. */
+/* Two tiles per row. These use the same QuizCard as the home page and gallery,
+   with the play count added in quiz-card-meta. */
 .quiz-board-grid {
   display: grid;
   gap: 12px;
@@ -489,21 +477,20 @@ button, .btn {
   padding: 14px;
 }
 
-/* An odd count leaves a gap in the last row; let the final tile span both
-   columns so the block still reads as finished. */
+/* An odd count would leave a gap in the last row, so the final tile spans both columns. */
 .quiz-board-grid > :last-child:nth-child(odd) {
   grid-column: 1 / -1;
 }
 
-/* Featured variant: the top-ranked tile leads at full width, with the rest in a
-   2-up grid beneath it. */
+/* Featured variant, where the top-ranked tile is full width with the rest in two
+   columns beneath it. */
 .quiz-board-grid-featured > :first-child {
   grid-column: 1 / -1;
 }
 
-/* With the leader spanning, the parity of what's left flips — an odd total now
-   leaves an even remainder that tiles cleanly, so the trailing-odd rule above
-   must not also fire. :not(:first-child) keeps a single-tile board featured. */
+/* With the first tile spanning the row, an odd total leaves an even number of
+   tiles below it, so the odd-count rule above is turned off. :not(:first-child)
+   keeps a board with a single tile full width. */
 .quiz-board-grid-featured > :last-child:nth-child(odd):not(:first-child) {
   grid-column: auto;
 }
@@ -512,14 +499,14 @@ button, .btn {
   grid-column: 1 / -1;
 }
 
-/* Full width at a 3:2 ratio would make the leader disproportionately tall next
-   to the four beneath it, so widen the crop instead. */
+/* A full-width tile at 3:2 would be much taller than the tiles below it, so it
+   uses a wider crop. */
 .quiz-board-grid-featured > :first-child.quiz-card {
   aspect-ratio: 2 / 1;
 }
 
-/* One per row on the narrowest screens, where a half-width tile gets too small
-   for its title to sit legibly over the image. */
+/* One tile per row on the narrowest screens, where a half-width tile is too
+   small for its title to be readable. */
 @media (max-width: 420px) {
   .quiz-board-grid {
     grid-template-columns: 1fr;
@@ -529,8 +516,8 @@ button, .btn {
     grid-column: auto;
   }
 
-  /* In a single column the leader is no longer wider than the rest, so the wide
-     crop would leave it the shortest tile rather than the most prominent one. */
+  /* In a single column every tile is the same width, so the first one goes back
+     to 3:2 instead of being the shortest. */
   .quiz-board-grid-featured > :first-child.quiz-card {
     aspect-ratio: 3 / 2;
   }

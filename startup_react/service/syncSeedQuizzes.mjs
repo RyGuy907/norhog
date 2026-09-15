@@ -1,20 +1,19 @@
-// One-time sync: pushes the current seedData.js content into the quizzes
-// collection for quizzes that ALREADY exist there. Startup seeding only ever
-// inserts missing slugs, so content changes to seeded quizzes (like the move to
-// 20 questions per difficulty) never reach a database that has them already —
-// this script is the deliberate way to apply them.
+// Pushes the current seedData.js content into quizzes that already exist in
+// the database. Startup seeding only inserts missing slugs, so edits to a
+// seeded quiz never reach a database that already has it. This script is how
+// those edits get applied.
 //
 //   node syncSeedQuizzes.mjs                  # dry run against dbConfig's database
 //   node syncSeedQuizzes.mjs --write          # apply the changes
 //   node syncSeedQuizzes.mjs --db quiz        # target a database other than dbConfig's
 //
-// The --db override exists so the production database can be updated from a
-// checkout whose dbConfig.json deliberately points at a scratch database,
-// without editing that file and risking it being left pointing at production.
+// The --db flag lets production be updated from a checkout whose dbConfig.json
+// points at a scratch database, without editing that file and possibly leaving
+// it pointed at production.
 //
-// Only quiz content is touched (title, image, imagePosition, imageCaption,
-// description, instructions, timeLimits, difficulties). Scores, users, suggestions, and quizzes created
-// through the admin UI (slugs not in seedData.js) are left alone.
+// Only quiz content is changed (title, image, imagePosition, imageCaption,
+// description, instructions, timeLimits, and difficulties). Scores, users,
+// suggestions, and quizzes created in the admin UI are left alone.
 import fs from 'fs';
 import { MongoClient } from 'mongodb';
 import { seedQuizzes } from './seedData.js';

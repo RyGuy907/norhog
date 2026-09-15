@@ -25,9 +25,9 @@
   box-shadow: var(--shadow);
 }
 
-/* Both the rounding and the shadow move to the wrapper, and border-collapse has
-   to become `separate` — a collapsed table cannot hold a sticky header, and the
-   base rule's overflow: hidden would clip it. */
+/* The rounding and shadow move to the wrapper, and border-collapse becomes
+   `separate`. A collapsed table can't keep a sticky header, and the base rule's
+   overflow: hidden would clip it. */
 .leaderboard-scroll .table {
   border-collapse: separate;
   border-spacing: 0;
@@ -46,7 +46,7 @@
 /* The Most Played board itself is styled by .quiz-board in App.css, shared with
    the profile page's Favourites board. */
 
-/* Stacked under the table on narrow screens, so give it breathing room. */
+/* Adds space above the panel when it stacks under the table on narrow screens. */
 @media (max-width: 991px) {
   .leaderboard-page .quiz-board {
     margin-top: 4px;
