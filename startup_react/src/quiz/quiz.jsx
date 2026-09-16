@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { shuffle } from '../shuffle';
 import { normalize } from '../answerMatch';
@@ -32,6 +32,12 @@ export function Quiz() {
   // Display answers keyed by question index. An answer is only known once a
   // guess unlocks it or the server reveals the key at the end of the run.
   const [revealed, setRevealed] = useState({});
+  // Which questions a guess has already claimed. Unlocking an answer involves
+  // two awaits, so several guesses can be in flight at once, and React state
+  // read before an await is stale by the time it resolves. This ref is updated
+  // synchronously, so two quick guesses can't claim the same question or
+  // overwrite each other's point.
+  const claimed = useRef(new Set());
   const [missed, setMissed] = useState({});
   // Stats for all three difficulties are fetched once per quiz, so switching
   // difficulty doesn't wait on a request.
@@ -77,6 +83,7 @@ export function Quiz() {
       setRevealed({});
       setMissed({});
       setAttemptId(null);
+      claimed.current = new Set();
       setGameSummary(null);
       setShowLoginPrompt(false);
 
@@ -170,6 +177,7 @@ export function Quiz() {
     setRevealed({});
     setMissed({});
     setAttemptId(null);
+    claimed.current = new Set();
   };
 
   const DifficultyChange = (event) => {
@@ -246,15 +254,18 @@ export function Quiz() {
 
     const { id, decrypt } = await lookup(quiz.salt, guess);
     const index = questions.findIndex(
-      (entry, i) => revealed[i] === undefined && entry.locks.some((lock) => lock.id === id)
+      (entry, i) => !claimed.current.has(i) && entry.locks.some((lock) => lock.id === id)
     );
     if (index === -1) {
       return;
     }
+    // Claimed before the decrypt below, so a second guess arriving meanwhile
+    // sees this question as taken.
+    claimed.current.add(index);
 
     const lock = questions[index].locks.find((entry) => entry.id === id);
     const answer = await decrypt(lock.c);
-    const newScore = score + 1;
+    const newScore = claimed.current.size;
     setRevealed((prev) => ({ ...prev, [index]: answer }));
     setScore(newScore);
     setUserAnswer((current) => (current === value ? '' : current));

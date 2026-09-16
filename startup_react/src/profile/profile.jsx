@@ -82,6 +82,8 @@ export function Profile() {
     window.dispatchEvent(new Event('authChanged'));
   };
 
+  // Like the favorites board below, the account comes from the session cookie,
+  // so neither call needs to say who is asking.
   const fetchScores = async () => {
     try {
       const response = await fetch('/api/scores/me');
@@ -154,7 +156,7 @@ export function Profile() {
         if (response.ok) {
           const data = await response.json();
           setLoggedIn(data);
-          fetchScores(data.email);
+          fetchScores();
         } else {
           clearUserData();
         }
@@ -170,8 +172,6 @@ export function Profile() {
       .catch(() => {});
   }, []);
 
-  // The server gets the account from the session cookie, so this takes no
-  // argument and one user can't request another's history.
   const fetchFavorites = async () => {
     try {
       const response = await fetch('/api/quizzes/favorites');
@@ -183,7 +183,7 @@ export function Profile() {
 
   useEffect(() => {
     if (authState === AuthState.Authenticated && userName) {
-      fetchScores(userName);
+      fetchScores();
       fetchFavorites();
     }
   }, [authState, userName]);

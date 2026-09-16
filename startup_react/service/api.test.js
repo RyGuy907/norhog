@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import request from 'supertest';
 
 // Integration tests that run the real Express app and middleware (sanitization,
@@ -58,7 +58,10 @@ vi.mock('./database.js', () => {
     getUserBest: async () => null,
     getUserBestTime: async () => null,
     getUserScores: async () => [],
-    deleteScoresForQuiz: async () => {},
+    deleteScoresForQuiz: async (quiz) => {
+      const k = key(quiz);
+      store.scores = store.scores.filter((s) => s.quiz !== k);
+    },
     // Matches the real aggregation, which counts score documents per quiz, joins
     // the quiz's display fields, and drops scores whose quiz no longer exists.
     getPopularQuizzes: async (limit = 5) => rankByPlays(store.scores, limit),
@@ -68,15 +71,22 @@ vi.mock('./database.js', () => {
     },
     getSuggestions: async () => store.suggestions,
     addSuggestion: async (s) => void store.suggestions.push(s),
-    deleteSuggestion: async () => {},
+    deleteSuggestion: async (id) => {
+      store.suggestions = store.suggestions.filter((s) => s.slug !== id);
+    },
     getQuizzes: async () => store.quizzes.map(({ slug, title, image, description }) => ({ slug, title, image, description })),
     getQuiz: async (slug) => {
       const k = key(slug);
       return k ? store.quizzes.find((q) => q.slug === k) || null : null;
     },
     addQuiz: async (quiz) => void store.quizzes.push(quiz),
-    updateQuiz: async () => {},
-    deleteQuiz: async () => {},
+    updateQuiz: async (slug, quiz) => {
+      const i = store.quizzes.findIndex((q) => q.slug === key(slug));
+      if (i !== -1) store.quizzes[i] = quiz;
+    },
+    deleteQuiz: async (slug) => {
+      store.quizzes = store.quizzes.filter((q) => q.slug !== key(slug));
+    },
   };
 });
 
@@ -468,5 +478,225 @@ describe('playing a quiz', () => {
     const agent = await signedInAgent();
     await agent.post('/api/attempt').send({ quiz: 'nope', difficulty: 'easy' }).expect(400);
     await agent.post('/api/attempt').send({ quiz: 'test-quiz', difficulty: 'constructor' }).expect(400);
+  });
+
+  it('reveals the answers to a guest but records no score', async () => {
+    const started = await request(app)
+      .post('/api/attempt')
+      .send({ quiz: 'test-quiz', difficulty: 'easy' })
+      .expect(201);
+
+    const finished = await request(app)
+      .post('/api/attempt/finish')
+      .send({ attemptId: started.body.attemptId, score: 0 })
+      .expect(200);
+
+    expect(finished.body.answers).toEqual(['Paris', 'Pacific']);
+    expect(finished.body.scores).toBeUndefined();
+    expect(store.scores).toHaveLength(0);
+  });
+});
+
+// The score itself comes from the browser, so these rules are what stop a
+// modified client from posting a run it never played.
+describe('attempt integrity', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  // Moves the server's clock forward without touching timers, so the elapsed
+  // time a route computes can be controlled from a test.
+  const skipAhead = (seconds) => {
+    const now = Date.now();
+    vi.spyOn(Date, 'now').mockImplementation(() => now + seconds * 1000);
+  };
+
+  const startRun = async (agent, difficulty = 'easy') => {
+    const res = await agent.post('/api/attempt').send({ quiz: 'test-quiz', difficulty }).expect(201);
+    return res.body.attemptId;
+  };
+
+  it('rejects a perfect score claimed faster than a person could type', async () => {
+    const agent = await signedInAgent();
+    const attemptId = await startRun(agent);
+
+    // Both answers within milliseconds of starting, under the 0.4s per answer floor.
+    const res = await agent.post('/api/attempt/finish').send({ attemptId, score: 2 }).expect(400);
+    expect(res.body.msg).toBe('Submission rejected');
+    expect(store.scores).toHaveLength(0);
+  });
+
+  it('accepts the same score once enough time has passed', async () => {
+    const agent = await signedInAgent();
+    const attemptId = await startRun(agent);
+    skipAhead(30);
+
+    const res = await agent.post('/api/attempt/finish').send({ attemptId, score: 2 }).expect(200);
+    expect(res.body.summary).toMatchObject({ score: 2, total: 2, points: 6, timeSpent: 30 });
+    expect(store.scores).toHaveLength(1);
+  });
+
+  it('takes the elapsed time from its own clock, not the client', async () => {
+    const agent = await signedInAgent();
+    const attemptId = await startRun(agent);
+    skipAhead(45);
+
+    const res = await agent
+      .post('/api/attempt/finish')
+      .send({ attemptId, score: 2, timeSpent: 1, elapsed: 1 })
+      .expect(200);
+    expect(res.body.summary.timeSpent).toBe(45);
+  });
+
+  it('rejects a run submitted after the time limit has passed', async () => {
+    const agent = await signedInAgent();
+    const attemptId = await startRun(agent);
+    skipAhead(120 + 16); // the easy limit plus more than the 15s grace
+
+    const res = await agent.post('/api/attempt/finish').send({ attemptId, score: 2 }).expect(400);
+    expect(res.body.msg).toMatch(/time expired/i);
+    expect(store.scores).toHaveLength(0);
+  });
+
+  it('will not let one attempt be submitted twice', async () => {
+    const agent = await signedInAgent();
+    const attemptId = await startRun(agent);
+    skipAhead(30);
+
+    await agent.post('/api/attempt/finish').send({ attemptId, score: 2 }).expect(200);
+    await agent.post('/api/attempt/finish').send({ attemptId, score: 2 }).expect(400);
+    expect(store.scores).toHaveLength(1);
+  });
+
+  it('will not let another account finish someone else\'s attempt', async () => {
+    const owner = await signedInAgent();
+    const attemptId = await startRun(owner);
+
+    const stranger = await signedInAgent({ email: 'stranger@example.com', displayName: 'Stranger' });
+    skipAhead(30);
+
+    await stranger.post('/api/attempt/finish').send({ attemptId, score: 2 }).expect(400);
+    // A guest holding the id cannot claim it either.
+    await request(app).post('/api/attempt/finish').send({ attemptId, score: 2 }).expect(400);
+    expect(store.scores).toHaveLength(0);
+  });
+
+  it('scores the run under the signed-in account, not one named by the client', async () => {
+    const agent = await signedInAgent();
+    const attemptId = await startRun(agent);
+    skipAhead(30);
+
+    await agent
+      .post('/api/attempt/finish')
+      .send({ attemptId, score: 1, user: 'stranger@example.com', name: 'Someone Else' })
+      .expect(200);
+
+    expect(store.scores[0]).toMatchObject({
+      user: credentials.email,
+      name: credentials.displayName,
+      quiz: 'test-quiz',
+      difficulty: 'easy',
+    });
+  });
+});
+
+describe('admin quiz management', () => {
+  const asAdmin = async () => {
+    const agent = await signedInAgent();
+    store.users[0].role = 'admin';
+    return agent;
+  };
+
+  it('updates a quiz in place', async () => {
+    const agent = await asAdmin();
+    await agent
+      .put('/api/quiz/test-quiz')
+      .send({ ...testQuiz, title: 'Renamed Quiz' })
+      .expect(200);
+
+    expect(store.quizzes.find((q) => q.slug === 'test-quiz').title).toBe('Renamed Quiz');
+  });
+
+  it('404s when updating or deleting a quiz that does not exist', async () => {
+    const agent = await asAdmin();
+    await agent.put('/api/quiz/ghost-quiz').send(testQuiz).expect(404);
+    await agent.delete('/api/quiz/ghost-quiz').expect(404);
+  });
+
+  it('deletes a quiz and the scores that belong to it', async () => {
+    const agent = await asAdmin();
+    store.scores.push(
+      { user: 'a@example.com', quiz: 'test-quiz' },
+      { user: 'a@example.com', quiz: 'other-quiz' }
+    );
+
+    await agent.delete('/api/quiz/test-quiz').expect(200);
+
+    expect(store.quizzes.some((q) => q.slug === 'test-quiz')).toBe(false);
+    expect(store.scores.map((s) => s.quiz)).toEqual(['other-quiz']);
+  });
+
+  it('rejects a quiz whose time limit is out of range', async () => {
+    const agent = await asAdmin();
+    await agent
+      .post('/api/quiz')
+      .send({ ...testQuiz, slug: 'bad-limits', timeLimits: { easy: 5, medium: 480, hard: 600 } })
+      .expect(400);
+  });
+
+  it('strips a javascript: image URL rather than storing it', async () => {
+    const agent = await asAdmin();
+    await agent
+      .post('/api/quiz')
+      .send({ ...testQuiz, slug: 'image-test', image: 'javascript:alert(1)' })
+      .expect(201);
+
+    expect(store.quizzes.find((q) => q.slug === 'image-test').image).toBe('');
+  });
+
+  it('reports image uploads as unconfigured instead of failing', async () => {
+    const agent = await asAdmin();
+    // No dbConfig.json in the test environment, so no bucket is configured.
+    await agent.post('/api/quiz-image-url').send({ contentType: 'image/png' }).expect(501);
+  });
+});
+
+describe('suggestions and account deletion', () => {
+  it('takes a suggestion from a signed-in player and records who sent it', async () => {
+    const agent = await signedInAgent();
+    await agent.post('/api/suggestion').send({ ...testQuiz, slug: 'suggested-quiz' }).expect(201);
+
+    expect(store.suggestions).toHaveLength(1);
+    expect(store.suggestions[0]).toMatchObject({
+      slug: 'suggested-quiz',
+      suggestedBy: credentials.email,
+      suggestedByName: credentials.displayName,
+    });
+    // A suggestion is not a quiz until an admin approves it.
+    expect(store.quizzes.some((q) => q.slug === 'suggested-quiz')).toBe(false);
+  });
+
+  it('requires a session to suggest and admin rights to review', async () => {
+    await request(app).post('/api/suggestion').send(testQuiz).expect(401);
+
+    const agent = await signedInAgent();
+    await agent.get('/api/suggestions').expect(403);
+    await agent.delete('/api/suggestions/anything').expect(403);
+
+    store.users[0].role = 'admin';
+    await agent.get('/api/suggestions').expect(200);
+  });
+
+  it('deletes the account, its scores, and the session, but only when confirmed', async () => {
+    const agent = await signedInAgent();
+    store.scores.push({ user: credentials.email, quiz: 'test-quiz' }, { user: 'a@example.com', quiz: 'test-quiz' });
+
+    await agent.delete('/api/user').send({}).expect(400);
+    expect(store.users).toHaveLength(1);
+
+    await agent.delete('/api/user').send({ confirm: true }).expect(200);
+    expect(store.users).toHaveLength(0);
+    expect(store.scores.map((s) => s.user)).toEqual(['a@example.com']);
+    await agent.get('/api/auth/me').expect(401);
   });
 });
