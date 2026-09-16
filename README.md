@@ -6,7 +6,9 @@ leaderboard that updates live over WebSockets.
 
 **Live site:** [norhog.com](https://norhog.com)
 
-I started it as my startup project for BYU's CS 260 (Web Programming) and kept
+![The Norhog home page, showing the quiz grid and the recommended quizzes sidebar](startup_react/docs/home.png)
+
+I started it as my startup project for a BYU course and kept
 building on it afterward. It now has 183 quizzes, a server-checked scoring
 system, an admin quiz builder, and a CI/CD pipeline that deploys to AWS.
 
