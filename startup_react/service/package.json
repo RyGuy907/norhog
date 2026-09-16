@@ -2,8 +2,18 @@
   "name": "quiz-service",
   "version": "1.0.0",
   "description": "Backend service for the Norhog quiz application",
+  "license": "MIT",
+  "private": true,
   "type": "module",
   "main": "index.js",
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RyGuy907/norhog.git",
+    "directory": "startup_react/service"
+  },
   "scripts": {
     "start": "node index.js",
     "test": "vitest run"

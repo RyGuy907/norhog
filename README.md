@@ -4,33 +4,33 @@ Norhog is a full-stack history quiz site. Players race the clock to type answers
 to fill-in-the-blank questions, and signed-in players earn points toward a
 leaderboard that updates live over WebSockets.
 
+[![CI](https://github.com/RyGuy907/norhog/actions/workflows/ci.yml/badge.svg)](https://github.com/RyGuy907/norhog/actions/workflows/ci.yml)
+
 **Live site:** [norhog.com](https://norhog.com)
 
 ![The Norhog home page, showing the quiz grid and the recommended quizzes sidebar](startup_react/docs/home.png)
 
-I started it as my startup project for a BYU course and kept
-building on it afterward. It now has 183 quizzes, a server-checked scoring
-system, an admin quiz builder, and a CI/CD pipeline that deploys to AWS.
+It runs on AWS with 183 quizzes, server-checked scoring, an admin quiz builder,
+and a pipeline that tests and deploys every push to `main`. It began as my
+startup project for a BYU course, and most of what is here was built after that
+course ended.
 
 ## Features
 
-- **Timed quizzes.** Each quiz has 20 questions at each of three difficulties,
-  with limits of 6, 8, and 10 minutes. A correct answer is revealed the moment it
-  is typed, and answers are matched loosely (case, accents, punctuation, a leading
-  "the", roman numerals, and per-question alternate spellings).
-- **Live leaderboard.** When anyone finishes a scored run, every open leaderboard
-  page updates over a WebSocket without a refresh.
-- **Accounts.** Registration and login use bcrypt-hashed passwords and httpOnly
-  session cookies. Anyone can play, but only signed-in runs are scored. Players
-  can delete their account and all of its data from the profile page.
-- **Admin quiz builder.** Quizzes live in MongoDB, not in the code. Admins can
-  create, edit, and delete them, and images upload straight from the browser to
-  S3 through presigned URLs.
-- **Quiz suggestions.** Signed-in players can submit a quiz, which goes into a
-  review queue that admins approve or reject.
-- **Boards.** Each quiz page shows the fastest perfect runs for each difficulty
-  and the player's own bests, and the leaderboard and profile pages show the most
-  played quizzes.
+- **Timed quizzes.** 20 questions at each of three difficulties, on a 6, 8, or 10
+  minute clock. An answer is revealed the moment it's typed, and guesses are
+  matched loosely: case, accents, punctuation, a leading "the", roman numerals,
+  and per-question alternate spellings.
+- **Live leaderboard.** Finishing a scored run updates every open leaderboard
+  over a WebSocket, with no refresh.
+- **Accounts.** bcrypt-hashed passwords and httpOnly session cookies. Anyone can
+  play; signing in is what makes a run count. Players can delete their account
+  and all its data.
+- **Admin quiz builder.** Quizzes live in MongoDB, not in the code, and images
+  upload from the browser straight to S3 through presigned URLs. Players can
+  suggest quizzes, which admins review.
+- **Boards.** Fastest perfect runs per difficulty, your own bests, and the most
+  played quizzes site-wide and per player.
 
 ## Tech stack
 
@@ -82,40 +82,24 @@ and hard at 10, scaled by the fraction answered. Only a player's best result on
 each quiz counts toward their total, so replaying can raise a score but never
 stack it.
 
-### Locked answers
-
-The quiz payload never contains readable answers. Each accepted spelling is sent
-as a salted SHA-256 digest (to compare a guess against) plus the display answer
-encrypted with a key derived from that same spelling. The browser normalizes each
-guess, checks it against the digests locally, and can only decrypt an answer it
-actually guessed. The rest are sent when the run ends. Because matching happens
-in the browser, typing doesn't send any network requests.
+The payload the browser receives holds no readable answers. Each accepted
+spelling arrives as a salted digest plus a ciphertext keyed by that spelling, so
+the page can only decrypt an answer someone actually guessed, and matching a
+guess costs no network request. The rest are released when the run ends.
 
 ## Security
 
-- **Injection.** Every request body, query, cookie, and route param is scrubbed of
-  MongoDB operator keys (`$`-prefixed, dotted, and prototype keys). Database
-  helpers also refuse non-string lookups as a second layer, which covers
-  cookie-parser turning a `j:` cookie into an object.
-- **Validation.** Text fields go through a checked reader with a length cap, and
-  allowlists use `Object.hasOwn` so keys like `constructor` can't slip through.
-  Image URLs must be http or https, and image positions only accept CSS keywords
-  and percentages.
-- **Sessions.** Passwords are hashed with bcrypt and capped at bcrypt's 72-byte
-  limit. Login takes the same time whether or not the email exists. Session
-  tokens rotate on login, live in `httpOnly`, `sameSite=strict` cookies (`Secure`
-  in production), and expire after 7 days on the server as well as in the browser.
-- **Rate limiting.** Login and registration allow 20 attempts per 15 minutes per
-  IP, and writes allow 60 per minute. Counters are keyed on the matched route, so
-  changing a URL's case doesn't reset them.
-- **Headers and sockets.** Responses include `nosniff`, `X-Frame-Options`, a
-  referrer policy, and HSTS in production. WebSocket upgrades from other origins
-  are refused.
-- **Data exposure.** Public boards return display names only. Emails, password
-  hashes, and tokens never leave the server.
-- **Deploys.** No credentials are stored in the repository. CI assumes an AWS role
-  through OIDC, the deploy bundle is checked to make sure `dbConfig.json` isn't in
-  it, and the server keeps its own copy of the database config.
+Request bodies, query strings, cookies, and route params are scrubbed of MongoDB
+operator keys before any route sees them, and the database helpers reject
+non-string lookups as a second layer. Passwords are bcrypt-hashed, login is
+constant-time whether or not the email exists, and session tokens rotate on
+login and expire after 7 days on the server as well as in the browser. Login and
+writes are rate limited per IP. Public boards return display names only, so
+emails and hashes never leave the server. No credentials are stored in the
+repository.
+
+[docs/SECURITY-NOTES.md](startup_react/docs/SECURITY-NOTES.md) has the detail,
+including the attacks each measure is for and the gaps that remain.
 
 ### Known limitations
 
@@ -129,17 +113,22 @@ someone determined to.
 
 ## Tests
 
-90 tests run in CI on every push.
+107 tests run in CI on every push. They are weighted toward the backend, which
+is where the logic worth breaking lives: 82 service tests cover about 75% of
+`index.js` and 91% of `security.js`, against 25 on the frontend.
 
-- **Unit tests** cover guess normalization, roman numeral handling, shuffling,
+- **Integration tests** drive the real Express app with supertest, stubbing only
+  the database. They cover registration and login, session expiry, admin
+  authorization, the full attempt flow, account deletion, and injection attempts
+  including an operator smuggled through a cookie. The rules that make scores
+  hard to fake get their own suite: runs claimed too fast, submitted too late,
+  replayed, or finished from another account are each rejected.
+- **Unit tests** cover guess normalization and roman numerals, shuffling,
   request sanitization, rate limiting, and the WebSocket origin check.
-- **Component tests** render `QuizCard` with React Testing Library.
 - **Contract tests** check the browser's answer unlocking against a
   re-implementation of the server's locking, so the two halves can't drift apart.
-- **Integration tests** drive the real Express app with supertest, with only the
-  database stubbed. They cover registration, login, session expiry, admin
-  authorization, the full attempt flow, rate limiting, and injection attempts
-  including the operator-in-a-cookie case.
+- **Component tests** render `QuizCard` with React Testing Library. This is the
+  thin part: the page components have no tests yet.
 
 ```bash
 cd startup_react
@@ -183,16 +172,11 @@ next page load.
 
 ## Seed data
 
-The live site's leaderboard is populated with 18 fictional demo players so the
-boards aren't empty. Their accounts use a `demo.norhog.com` email domain and
-password hashes of discarded random bytes, so nobody can sign into them.
-
-| Script | Purpose |
-|---|---|
-| `service/seedData.js` | The starter quizzes. Loaded at boot, and only inserts missing slugs so admin edits are kept. |
-| `service/syncSeedQuizzes.mjs` | Pushes edits in `seedData.js` to quizzes that already exist. Dry run by default. |
-| `service/seedDevData.mjs` | Local test players with a known password. Refuses to run against `quiz`. |
-| `service/seedDemoPlayers.mjs` | The live site's demo players. Needs an explicit `--db`, and `--purge` removes them. |
+The 183 quizzes are seeded at boot from `service/seedData.js`, which only
+inserts slugs that are missing so admin edits are kept. The live leaderboard is
+also seeded with 18 fictional players, whose accounts cannot be signed into, so
+the boards aren't empty. [docs/SEED-DATA.md](startup_react/docs/SEED-DATA.md)
+covers the seeding and sync scripts.
 
 ## Deployment
 

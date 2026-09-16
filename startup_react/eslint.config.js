@@ -5,7 +5,7 @@ import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 
 export default [
-  { ignores: ['dist', 'service/public'] },
+  { ignores: ['dist', 'service/public', '**/coverage'] },
   {
     // Tests run under Vitest in Node, so they get both browser and node globals.
     files: ['**/*.test.{js,jsx}', 'src/test/**/*.js'],

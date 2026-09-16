@@ -3,7 +3,16 @@
   "private": true,
   "version": "1.0.0",
   "description": "Frontend for the Norhog history quiz site",
+  "license": "MIT",
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RyGuy907/norhog.git",
+    "directory": "startup_react"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
