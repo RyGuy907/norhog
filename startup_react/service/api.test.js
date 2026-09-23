@@ -909,11 +909,13 @@ describe('daily quiz', () => {
   });
 
   it('accepts yesterday\'s result for an hour after midnight, then not', async () => {
-    const agent = await signedInAgent();
     vi.useFakeTimers({ toFake: ['Date'] });
     try {
       // 00:20 Pacific (PDT) on 23 September: yesterday's quiz is still in its grace period.
       vi.setSystemTime(new Date('2026-09-23T07:20:00Z'));
+      // Signed in on the fake clock. A session issued on the real clock would look
+      // like it came from the future once real time passes these dates, and be refused.
+      const agent = await signedInAgent();
       const saved = await agent.post('/api/daily/result').send({ date: '2026-09-22', results }).expect(201);
       expect(store.dailyPlays.at(-1)).toMatchObject({ date: '2026-09-22', number: Daily.dailyNumber('2026-09-22') });
       expect(saved.body.streak.current).toBe(1);
