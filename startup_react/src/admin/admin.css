@@ -18,3 +18,106 @@
   padding: 10px 14px;
   max-width: 760px;
 }
+
+.daily-preview {
+  margin-top: 32px;
+}
+
+.daily-preview-day {
+  background-color: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 10px;
+}
+
+.daily-preview-day summary {
+  cursor: pointer;
+}
+
+.daily-preview-live {
+  color: var(--green);
+  font-weight: 600;
+}
+
+.daily-preview-day ol {
+  margin: 10px 0 0;
+  padding-left: 1.4rem;
+}
+
+.daily-preview-day li {
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--line);
+}
+
+.daily-preview-day li:last-child {
+  border-bottom: none;
+}
+
+.daily-preview-source,
+.daily-preview-lead {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.daily-preview-question {
+  font-weight: 600;
+  margin: 2px 0 6px;
+}
+
+.daily-preview-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.daily-preview-choices span {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 0.9rem;
+}
+
+.daily-preview-choices .is-answer {
+  border-color: var(--green);
+  background-color: #eaf5ed;
+  font-weight: 600;
+}
+
+.daily-preview-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.daily-preview-edit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.daily-preview-edit .is-answer {
+  border: 1px solid var(--green);
+  background-color: #eaf5ed;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.daily-preview-edit .form-control {
+  flex: 1 1 9rem;
+}
+
+.daily-preview-edit .daily-preview-actions {
+  flex-basis: 100%;
+}
+
+.daily-preview-tag {
+  color: var(--muted);
+  font-size: 0.85rem;
+  align-self: center;
+}

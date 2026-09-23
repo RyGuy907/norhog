@@ -3,6 +3,7 @@ import { QuizCard, fetchQuizStatuses } from '../quizCard';
 import { usePageTitle } from '../usePageTitle';
 import '../main/main.css';
 import { RandomQuiz } from '../randomQuiz';
+import { PracticeBox } from './practiceBox';
 import './gallery.css';
 
 const sorts = {
@@ -79,6 +80,8 @@ export function Gallery() {
         {/* Picks from every quiz instead of the filtered list, so it behaves
             the same as in the Recommended boxes. */}
         <RandomQuiz quizzes={quizzes} className="gallery-random" />
+        {/* Sits at the right end of the toolbar so it doesn't push the grid down. */}
+        <PracticeBox />
       </div>
 
       {loading && <p>Loading quizzes...</p>}

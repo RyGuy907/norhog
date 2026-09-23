@@ -19,6 +19,8 @@ const userCollection = db.collection('users');
 const scoreCollection = db.collection('scores');
 const quizCollection = db.collection('quizzes');
 const suggestionCollection = db.collection('suggestions');
+const dailyCollection = db.collection('daily');
+const dailyPlayCollection = db.collection('dailyPlays');
 
 // Checks the connection at startup so a bad config fails right away. The unique
 // indexes are also created here, since the check-then-insert in the signup
@@ -32,6 +34,8 @@ const suggestionCollection = db.collection('suggestions');
     await userCollection.createIndex({ token: 1 });
     await scoreCollection.createIndex({ user: 1, quiz: 1, difficulty: 1 });
     await quizCollection.createIndex({ slug: 1 }, { unique: true });
+    await dailyCollection.createIndex({ date: 1 }, { unique: true });
+    await dailyPlayCollection.createIndex({ user: 1, date: 1 }, { unique: true });
   } catch (ex) {
     console.log(`Unable to connect to database with ${config.hostname} because ${ex.message}`);
     process.exit(1);
@@ -77,6 +81,7 @@ export async function deleteUser(email) {
   if (!asKey(email)) return;
   await scoreCollection.deleteMany({ user: email });
   await suggestionCollection.deleteMany({ suggestedBy: email });
+  await dailyPlayCollection.deleteMany({ user: email });
   await userCollection.deleteOne({ email });
 }
 
@@ -270,4 +275,96 @@ export async function updateQuiz(slug, quiz) {
 
 export async function deleteQuiz(slug) {
   await quizCollection.deleteOne({ slug });
+}
+
+// Every quiz with its questions, which the daily quiz draws from.
+export function getQuizzesForDaily() {
+  return quizCollection
+    .find()
+    .project({ _id: 0, slug: 1, title: 1, difficulties: 1 })
+    .toArray();
+}
+
+// Marks one question as excluded from (or allowed back into) the daily quiz.
+// The question text is part of the filter, so an index that has shifted since
+// the admin loaded the page matches nothing instead of the wrong question.
+export async function setQuestionDaily(slug, level, index, question, allowed) {
+  const key = asKey(slug);
+  if (!key || !['easy', 'medium', 'hard'].includes(level) || !Number.isInteger(index) || index < 0) {
+    return false;
+  }
+  const path = `difficulties.${level}.${index}`;
+  const result = await quizCollection.updateOne(
+    { slug: key, [`${path}.question`]: String(question) },
+    allowed ? { $unset: { [`${path}.daily`]: '' } } : { $set: { [`${path}.daily`]: false } }
+  );
+  return result.matchedCount === 1;
+}
+
+// Sets or clears (null) a question's hand-written wrong answers. Like
+// setQuestionDaily, the question text guards against a shifted index.
+export async function setQuestionChoices(slug, level, index, question, choices) {
+  const key = asKey(slug);
+  if (!key || !['easy', 'medium', 'hard'].includes(level) || !Number.isInteger(index) || index < 0) {
+    return false;
+  }
+  const path = `difficulties.${level}.${index}`;
+  const result = await quizCollection.updateOne(
+    { slug: key, [`${path}.question`]: String(question) },
+    choices ? { $set: { [`${path}.choices`]: choices } } : { $unset: { [`${path}.choices`]: '' } }
+  );
+  return result.matchedCount === 1;
+}
+
+export function getDaily(date) {
+  const key = asKey(date);
+  return key ? dailyCollection.findOne({ date: key }, { projection: { _id: 0 } }) : Promise.resolve(null);
+}
+
+// Keys of every question used on a day before this one, so the picker can
+// avoid repeats.
+export async function getUsedDailyKeys(beforeDate) {
+  const days = await dailyCollection
+    .find({ date: { $lt: String(beforeDate) } })
+    .project({ _id: 0, 'questions.key': 1 })
+    .toArray();
+  return new Set(days.flatMap((day) => day.questions.map((q) => q.key)));
+}
+
+// Stores a day the first time anyone asks for it. When two requests race, the
+// unique index keeps the first and the loser reads it back.
+export async function addDaily(day) {
+  try {
+    await dailyCollection.insertOne({ ...day });
+    return day;
+  } catch (err) {
+    if (err.code === 11000) {
+      return getDaily(day.date);
+    }
+    throw err;
+  }
+}
+
+export function getDailyPlay(user, date) {
+  if (!asKey(user) || !asKey(date)) return Promise.resolve(null);
+  return dailyPlayCollection.findOne({ user, date }, { projection: { _id: 0, user: 0 } });
+}
+
+// Returns false when the player already has a result for that day.
+export async function addDailyPlay(play) {
+  try {
+    await dailyPlayCollection.insertOne({ ...play });
+    return true;
+  } catch (err) {
+    if (err.code === 11000) {
+      return false;
+    }
+    throw err;
+  }
+}
+
+export async function getDailyPlayDates(user) {
+  if (!asKey(user)) return [];
+  const plays = await dailyPlayCollection.find({ user }).project({ _id: 0, date: 1 }).toArray();
+  return plays.map((play) => play.date);
 }

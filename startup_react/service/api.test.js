@@ -9,6 +9,8 @@ const store = vi.hoisted(() => ({
   quizzes: [],
   scores: [],
   suggestions: [],
+  daily: [],
+  dailyPlays: [],
   // Records every key the routes pass to the data layer, so tests can check that
   // operator objects never get that far.
   keysSeen: [],
@@ -87,10 +89,48 @@ vi.mock('./database.js', () => {
     deleteQuiz: async (slug) => {
       store.quizzes = store.quizzes.filter((q) => q.slug !== key(slug));
     },
+    getQuizzesForDaily: async () => structuredClone(store.quizzes),
+    setQuestionDaily: async (slug, level, index, question, allowed) => {
+      const entry = store.quizzes.find((q) => q.slug === key(slug))?.difficulties?.[level]?.[index];
+      if (!entry || entry.question !== question) return false;
+      if (allowed) delete entry.daily;
+      else entry.daily = false;
+      return true;
+    },
+    setQuestionChoices: async (slug, level, index, question, choices) => {
+      const entry = store.quizzes.find((q) => q.slug === key(slug))?.difficulties?.[level]?.[index];
+      if (!entry || entry.question !== question) return false;
+      if (choices) entry.choices = choices;
+      else delete entry.choices;
+      return true;
+    },
+    getDaily: async (date) => structuredClone(store.daily.find((d) => d.date === key(date)) || null),
+    getUsedDailyKeys: async (before) =>
+      new Set(store.daily.filter((d) => d.date < before).flatMap((d) => d.questions.map((q) => q.key))),
+    addDaily: async (day) => {
+      const existing = store.daily.find((d) => d.date === day.date);
+      if (existing) return structuredClone(existing);
+      store.daily.push(structuredClone(day));
+      return day;
+    },
+    getDailyPlay: async (user, date) => {
+      const play = store.dailyPlays.find((p) => p.user === key(user) && p.date === key(date));
+      if (!play) return null;
+      const rest = { ...play };
+      delete rest.user;
+      return rest;
+    },
+    addDailyPlay: async (play) => {
+      if (store.dailyPlays.some((p) => p.user === play.user && p.date === play.date)) return false;
+      store.dailyPlays.push(play);
+      return true;
+    },
+    getDailyPlayDates: async (user) => store.dailyPlays.filter((p) => p.user === key(user)).map((p) => p.date),
   };
 });
 
-const { app, resetRateLimits } = await import('./index.js');
+const { app, resetRateLimits, resetDailyCache } = await import('./index.js');
+const Daily = await import('./daily.js');
 
 const testQuiz = {
   slug: 'test-quiz',
@@ -120,7 +160,10 @@ beforeEach(() => {
   store.quizzes = [structuredClone(testQuiz)];
   store.scores = [];
   store.suggestions = [];
+  store.daily = [];
+  store.dailyPlays = [];
   store.keysSeen = [];
+  resetDailyCache();
 });
 
 // Registers a user and returns an agent carrying their session cookie.
@@ -698,5 +741,240 @@ describe('suggestions and account deletion', () => {
     expect(store.users).toHaveLength(0);
     expect(store.scores.map((s) => s.user)).toEqual(['a@example.com']);
     await agent.get('/api/auth/me').expect(401);
+  });
+});
+
+describe('daily quiz', () => {
+  // A day takes five questions and at most two from one quiz, and every
+  // question needs multiple-choice options, so the daily tests add three
+  // quizzes whose answers are years.
+  beforeEach(() => {
+    let year = 1500;
+    const q = (name) => ({ question: `In which year did ${name} happen?`, answer: String(year++), accept: [] });
+    for (const name of ['second', 'third', 'fourth']) {
+      store.quizzes.push({
+        ...structuredClone(testQuiz),
+        slug: `${name}-quiz`,
+        title: `${name} quiz`,
+        difficulties: {
+          easy: [q(`${name} easy one`), q(`${name} easy two`), q(`${name} easy three`)],
+          medium: [q(`${name} medium`)],
+          hard: [q(`${name} hard`)],
+        },
+      });
+    }
+  });
+
+  const results = ['typed', 'typed', 'choice', 'miss', 'typed'];
+
+  it('serves five questions and stores the day so everyone gets the same one', async () => {
+    const first = await request(app).get('/api/daily').expect(200);
+    expect(first.body.questions.map((q) => q.level)).toEqual(['easy', 'easy', 'easy', 'medium', 'hard']);
+    expect(first.body.date).toBe(Daily.dailyDate());
+    expect(first.body.nextResetAt).toBeGreaterThan(Date.now());
+    expect(store.daily).toHaveLength(1);
+
+    // Edits to the library after a day is stored don't change it.
+    store.quizzes = store.quizzes.slice(0, 1);
+    resetDailyCache();
+    const second = await request(app).get('/api/daily').expect(200);
+    expect(second.body.questions).toEqual(first.body.questions);
+  });
+
+  it('lets guests finish without saving anything', async () => {
+    const res = await request(app).post('/api/daily/result').send({ date: Daily.dailyDate(), results }).expect(200);
+    expect(res.body.saved).toBe(false);
+    expect(store.dailyPlays).toHaveLength(0);
+  });
+
+  it('saves one result per player per day and reports the streak', async () => {
+    const agent = await signedInAgent();
+    const today = Daily.dailyDate();
+    store.dailyPlays.push({ user: credentials.email, date: Daily.addDays(today, -1), results });
+
+    const saved = await agent.post('/api/daily/result').send({ date: today, results }).expect(201);
+    expect(saved.body.streak.current).toBe(2);
+    expect(store.dailyPlays.at(-1)).toMatchObject({ user: credentials.email, date: today, score: 7 });
+
+    const again = await agent.post('/api/daily/result').send({ date: today, results: Array(5).fill('typed') }).expect(409);
+    expect(again.body.played.results).toEqual(results);
+
+    const daily = await agent.get('/api/daily').expect(200);
+    expect(daily.body.played.results).toEqual(results);
+    expect(daily.body.streak.current).toBe(2);
+  });
+
+  it('rejects results smuggled in as arrays or objects, and dates with extra text', async () => {
+    const agent = await signedInAgent();
+    const date = Daily.dailyDate();
+    await agent.post('/api/daily/result').send({ date, results: [['typed'], 'typed', 'typed', 'typed', 'typed'] }).expect(400);
+    await agent.post('/api/daily/result').send({ date, results: [{ toString: 'typed' }, 'typed', 'typed', 'typed', 'typed'] }).expect(400);
+    await agent.post('/api/daily/result').send({ date: `${date}' || '1'=='1`, results }).expect(400);
+    expect(store.dailyPlays).toHaveLength(0);
+  });
+
+  it('answers malformed and oversized bodies with 400 and 413, not 500', async () => {
+    await request(app).post('/api/practice').set('content-type', 'application/json').send('{"easy":3,').expect(400);
+    const huge = JSON.stringify({ easy: 3, medium: 1, hard: 1, seen: Array(40000).fill('abcdefgh') });
+    await request(app).post('/api/practice').set('content-type', 'application/json').send(huge).expect(413);
+  });
+
+  it('rejects results for another day or in the wrong shape', async () => {
+    const agent = await signedInAgent();
+    await agent.post('/api/daily/result').send({ date: '2000-01-01', results }).expect(400);
+    await agent.post('/api/daily/result').send({ date: Daily.dailyDate(), results: ['typed'] }).expect(400);
+    await agent.post('/api/daily/result').send({ date: Daily.dailyDate(), results: { $gt: '' } }).expect(400);
+  });
+
+  it('keeps the preview and exclusions to admins', async () => {
+    await request(app).get('/api/daily/preview').expect(401);
+    const agent = await signedInAgent();
+    await agent.get('/api/daily/preview').expect(403);
+    await agent.post('/api/daily/exclude').send({}).expect(403);
+
+    store.users[0].role = 'admin';
+    const preview = await agent.get('/api/daily/preview?days=3').expect(200);
+    expect(preview.body).toHaveLength(3);
+    expect(preview.body[0].questions[0].choices).toHaveLength(4);
+  });
+
+  it('excludes a question only when its text still matches', async () => {
+    const agent = await signedInAgent();
+    store.users[0].role = 'admin';
+
+    await agent
+      .post('/api/daily/exclude')
+      .send({ slug: 'second-quiz', level: 'easy', index: 0, question: 'Some other text' })
+      .expect(404);
+    await agent
+      .post('/api/daily/exclude')
+      .send({ slug: 'second-quiz', level: 'easy', index: 0, question: 'In which year did second easy one happen?' })
+      .expect(200);
+    expect(store.quizzes[1].difficulties.easy[0].daily).toBe(false);
+  });
+
+  it('keeps daily flags through an admin edit', async () => {
+    const agent = await signedInAgent();
+    store.users[0].role = 'admin';
+    const edited = structuredClone(testQuiz);
+    edited.difficulties.easy[1].followsPrevious = true;
+    edited.difficulties.easy[0].daily = false;
+    await agent.put('/api/quiz/test-quiz').send(edited).expect(200);
+    const saved = store.quizzes.find((q) => q.slug === 'test-quiz');
+    expect(saved.difficulties.easy[1].followsPrevious).toBe(true);
+    expect(saved.difficulties.easy[0].daily).toBe(false);
+  });
+
+  it('keeps three hand-written wrong answers through an admin edit', async () => {
+    const agent = await signedInAgent();
+    store.users[0].role = 'admin';
+    const edited = structuredClone(testQuiz);
+    edited.difficulties.easy[0].choices = ['Lyon', 'Marseille', 'Nice'];
+    await agent.put('/api/quiz/test-quiz').send(edited).expect(200);
+    const saved = store.quizzes.find((q) => q.slug === 'test-quiz');
+    expect(saved.difficulties.easy[0].choices).toEqual(['Lyon', 'Marseille', 'Nice']);
+  });
+
+  it('refuses an admin edit whose wrong answers are incomplete or include a correct one', async () => {
+    const agent = await signedInAgent();
+    store.users[0].role = 'admin';
+    const bad = [
+      ['Atlantic', 'Pacific', 'Indian'], // Pacific is the answer
+      ['Atlantic', 'Indian', ''], // only two
+      ['Atlantic', 'atlantic', 'Indian'], // a repeat
+    ];
+    for (const choices of bad) {
+      const edited = structuredClone(testQuiz);
+      edited.difficulties.easy[1].choices = choices;
+      const res = await agent.put('/api/quiz/test-quiz').send(edited).expect(400);
+      expect(res.body.msg).toMatch(/wrong answers/);
+    }
+    // An accepted spelling counts as correct too.
+    const edited = structuredClone(testQuiz);
+    edited.difficulties.easy[0].accept = ['City of Light'];
+    edited.difficulties.easy[0].choices = ['Lyon', 'city of light', 'Nice'];
+    await agent.put('/api/quiz/test-quiz').send(edited).expect(400);
+  });
+
+  it('drops a lead-in flag from a first question', async () => {
+    const agent = await signedInAgent();
+    store.users[0].role = 'admin';
+    const edited = structuredClone(testQuiz);
+    edited.difficulties.easy[0].followsPrevious = true;
+    edited.difficulties.easy[1].followsPrevious = true;
+    await agent.put('/api/quiz/test-quiz').send(edited).expect(200);
+    const saved = store.quizzes.find((q) => q.slug === 'test-quiz');
+    expect(saved.difficulties.easy[0].followsPrevious).toBeUndefined();
+    expect(saved.difficulties.easy[1].followsPrevious).toBe(true);
+  });
+
+  it('accepts yesterday\'s result for an hour after midnight, then not', async () => {
+    const agent = await signedInAgent();
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      // 00:20 Pacific (PDT) on 23 September: yesterday's quiz is still in its grace period.
+      vi.setSystemTime(new Date('2026-09-23T07:20:00Z'));
+      const saved = await agent.post('/api/daily/result').send({ date: '2026-09-22', results }).expect(201);
+      expect(store.dailyPlays.at(-1)).toMatchObject({ date: '2026-09-22', number: Daily.dailyNumber('2026-09-22') });
+      expect(saved.body.streak.current).toBe(1);
+
+      // 01:30 Pacific: too late for the day before.
+      vi.setSystemTime(new Date('2026-09-24T08:30:00Z'));
+      await agent.post('/api/daily/result').send({ date: '2026-09-23', results }).expect(400);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('tells the page whose day it is, so saved progress can be matched to a player', async () => {
+    const anon = await request(app).get('/api/daily').expect(200);
+    expect(anon.body.player).toBeUndefined();
+    const agent = await signedInAgent();
+    const res = await agent.get('/api/daily').expect(200);
+    expect(res.body.player).toBe(credentials.displayName);
+  });
+
+  it('lets admins set and clear a question\'s choices from the preview', async () => {
+    const body = { slug: 'second-quiz', level: 'easy', index: 0, question: 'In which year did second easy one happen?' };
+    const anon = await signedInAgent();
+    await anon.post('/api/daily/choices').send({ ...body, choices: ['a', 'b', 'c'] }).expect(403);
+
+    store.users[0].role = 'admin';
+    await anon.post('/api/daily/choices').send({ ...body, choices: ['a', 'b'] }).expect(400);
+    await anon.post('/api/daily/choices').send({ ...body, question: 'stale' , choices: ['a', 'b', 'c'] }).expect(404);
+    await anon.post('/api/daily/choices').send({ ...body, index: '0', choices: ['a', 'b', 'c'] }).expect(404);
+    await anon.post('/api/daily/choices').send({ ...body, choices: ['1400', '1450', '1600'] }).expect(200);
+    expect(store.quizzes[1].difficulties.easy[0].choices).toEqual(['1400', '1450', '1600']);
+
+    const preview = await anon.get('/api/daily/preview?days=30').expect(200);
+    const used = preview.body.flatMap((d) => d.questions).find((q) => q.question === body.question);
+    if (used) {
+      expect(used.authoredChoices).toBe(true);
+      expect([...used.choices].sort()).toEqual(['1400', '1450', '1500', '1600']);
+    }
+
+    await anon.post('/api/daily/choices').send({ ...body, choices: [] }).expect(200);
+    expect(store.quizzes[1].difficulties.easy[0].choices).toBeUndefined();
+  });
+
+  it('serves practice rounds to anyone, in the requested mix', async () => {
+    const res = await request(app).post('/api/practice').send({ easy: 2, medium: 1, hard: 1 }).expect(200);
+    expect(res.body.questions.map((q) => q.level)).toEqual(['easy', 'easy', 'medium', 'hard']);
+    expect(res.body.questions.every((q) => q.id && q.choices.length === 4 && q.accepted.length)).toBe(true);
+    // Nothing about a practice round is stored.
+    expect(store.dailyPlays).toHaveLength(0);
+  });
+
+  it('rejects practice settings outside the limits', async () => {
+    await request(app).post('/api/practice').send({ easy: 0, medium: 0, hard: 0 }).expect(400);
+    await request(app).post('/api/practice').send({ easy: 11, medium: 0, hard: 0 }).expect(400);
+    await request(app).post('/api/practice').send({ easy: 'lots', medium: 1, hard: 1 }).expect(400);
+  });
+
+  it('steers practice away from questions the player has seen', async () => {
+    const first = await request(app).post('/api/practice').send({ easy: 3, medium: 0, hard: 0 }).expect(200);
+    const seen = first.body.questions.map((q) => q.id);
+    const next = await request(app).post('/api/practice').send({ easy: 3, medium: 0, hard: 0, seen }).expect(200);
+    expect(next.body.questions.some((q) => seen.includes(q.id))).toBe(false);
   });
 });

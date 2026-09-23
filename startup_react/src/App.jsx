@@ -4,6 +4,8 @@ import { Main } from './main/main';
 import { Gallery } from './gallery/gallery';
 import { Leaderboard } from './leaderboard/leaderboard';
 import { Quiz } from './quiz/quiz';
+import { Daily } from './daily/daily';
+import { Practice } from './practice/practice';
 import { Profile } from './profile/profile';
 import { Admin } from './admin/admin';
 import { Cat } from './cat/cat';
@@ -60,6 +62,7 @@ function App() {
               <menu className="menu">
                 <li><NavLink to="/" end>Home</NavLink></li>
                 <li><NavLink to="/quizzes">Quizzes</NavLink></li>
+                <li><NavLink to="/daily">Daily</NavLink></li>
                 <li><NavLink to="/leaderboard">Leaderboard</NavLink></li>
                 <li><NavLink to="/profile">Profile</NavLink></li>
                 {isAdmin && <li><NavLink to="/admin">Admin</NavLink></li>}
@@ -74,6 +77,8 @@ function App() {
           <Route path="/quizzes" element={<Gallery />} />
           <Route path="/quiz/:slug" element={<Quiz />} />
           <Route path="/quiz" element={<Navigate to="/quizzes" replace />} />
+          <Route path="/daily" element={<Daily />} />
+          <Route path="/practice" element={<Practice />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/admin" element={<Admin />} />

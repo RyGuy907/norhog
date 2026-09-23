@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { QuizForm, emptyQuizForm } from '../quizForm/quizForm';
+import { DailyPreview } from './dailyPreview';
 import { usePageTitle } from '../usePageTitle';
 import './admin.css';
 
@@ -188,6 +189,7 @@ export function Admin() {
           initial={formInitial}
           slugLocked={Boolean(editingSlug)}
           allowUpload
+          showDailyFlags
           submitLabel={editingSlug ? 'Save Changes' : reviewingId ? 'Approve & Publish' : 'Create Quiz'}
           errorMsg={errorMsg}
           onSave={save}
@@ -266,6 +268,8 @@ export function Admin() {
           </tbody>
         </table>
       )}
+
+      <DailyPreview />
     </main>
   );
 }

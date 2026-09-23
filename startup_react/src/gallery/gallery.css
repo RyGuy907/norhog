@@ -1,6 +1,8 @@
 .gallery-controls {
   display: flex;
   flex-wrap: wrap;
+  /* Centred, so the taller practice box doesn't stretch the other controls. */
+  align-items: center;
   gap: 10px;
   margin: 18px 0 12px;
 }
@@ -44,4 +46,47 @@
   border-radius: 10px;
   padding: 16px 18px;
   color: var(--muted);
+}
+
+/* The box itself comes from .suggest-box in App.css, so it matches the home
+   page's sidebar boxes. These rules only place it in the toolbar and let its
+   contents open over the grid instead of pushing it down. */
+.suggest-box.gallery-practice {
+  position: relative;
+  margin: 0 0 0 auto;
+  min-width: 15rem;
+}
+
+/* The home boxes grow when opened; this one keeps its size, because its
+   contents open in the panel below instead. */
+.suggest-box.gallery-practice[open] {
+  padding-bottom: 10px;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.suggest-box.gallery-practice[open] h4 {
+  margin-bottom: 0;
+}
+
+.gallery-practice-panel {
+  position: absolute;
+  top: 100%;
+  left: -1px;
+  right: -1px;
+  z-index: 10;
+  background-color: var(--card);
+  border: 1px solid var(--gold);
+  border-top: none;
+  border-radius: 0 0 10px 10px;
+  box-shadow: var(--shadow);
+  padding: 0 16px 16px;
+}
+
+/* On a narrow screen the toolbar stacks, so the box takes the full width. */
+@media (max-width: 575px) {
+  .suggest-box.gallery-practice {
+    margin-left: 0;
+    flex: 1 1 100%;
+  }
 }

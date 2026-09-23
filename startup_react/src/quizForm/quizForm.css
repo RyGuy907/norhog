@@ -30,6 +30,31 @@
   flex: 1 1 12rem;
 }
 
+.daily-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.25rem;
+  flex-basis: 100%;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.daily-choice-inputs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  flex-basis: 100%;
+}
+
+.daily-choice-inputs span {
+  flex-basis: 100%;
+}
+
+.daily-choice-inputs .form-control {
+  flex: 1 1 10rem;
+}
+
 .time-limit-row {
   display: flex;
   flex-wrap: wrap;

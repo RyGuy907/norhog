@@ -1,0 +1,102 @@
+.practice-more {
+  margin: 4px 0 8px;
+}
+
+.practice-more summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.95rem;
+  list-style: none;
+}
+
+.practice-more summary::-webkit-details-marker {
+  display: none;
+}
+
+/* A chevron that turns when the settings open. */
+.practice-more summary::after {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  transform: rotate(45deg) translateY(-2px);
+  transition: transform 0.15s;
+}
+
+.practice-more[open] summary::after {
+  transform: rotate(-135deg) translateX(-2px);
+}
+
+.practice-settings {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px 16px 6px;
+  margin: 4px 0 8px;
+}
+
+.practice-settings legend {
+  float: none;
+  width: auto;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--navy);
+  padding: 0 6px;
+  margin: 0;
+}
+
+.practice-level {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px dashed var(--line);
+}
+
+.practice-stepper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.practice-stepper .btn {
+  width: 2.2rem;
+  font-weight: 700;
+}
+
+.practice-stepper output {
+  min-width: 1.5rem;
+  text-align: center;
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--navy);
+}
+
+.practice-total {
+  color: var(--muted);
+  font-size: 0.95rem;
+  margin: 8px 0 4px;
+}
+
+.practice-reset {
+  font-size: inherit;
+  vertical-align: baseline;
+}
+
+.practice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin: 8px 0 4px;
+}
+
+/* The daily's results card centres a single quiz button as a block; here the
+   buttons sit side by side instead. */
+.daily-results .practice-actions .quiz-btn {
+  display: inline-block;
+  margin: 0;
+}

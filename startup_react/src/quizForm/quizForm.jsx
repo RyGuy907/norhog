@@ -1,7 +1,14 @@
 import { useState } from 'react';
 import './quizForm.css';
 
-const emptyEntry = () => ({ question: '', answer: '', acceptText: '' });
+const emptyEntry = () => ({
+  question: '',
+  answer: '',
+  acceptText: '',
+  followsPrevious: false,
+  dailyExcluded: false,
+  choices: ['', '', ''],
+});
 
 // The server stores `accept` as an array, and the form edits it as one
 // comma-separated text field.
@@ -12,6 +19,9 @@ const toFormDifficulties = (difficulties) => {
       question: entry.question || '',
       answer: entry.answer || '',
       acceptText: entry.acceptText ?? (entry.accept || []).join(', '),
+      followsPrevious: entry.followsPrevious === true,
+      dailyExcluded: entry.dailyExcluded ?? entry.daily === false,
+      choices: [0, 1, 2].map((i) => entry.choices?.[i] || ''),
     }));
   }
   return out;
@@ -24,6 +34,12 @@ const toPayloadDifficulties = (difficulties) => {
       question: entry.question,
       answer: entry.answer,
       accept: entry.acceptText.split(',').map((text) => text.trim()).filter(Boolean),
+      // Daily quiz flags, only sent when set (see service/daily.js).
+      ...(entry.followsPrevious ? { followsPrevious: true } : {}),
+      ...(entry.dailyExcluded ? { daily: false } : {}),
+      // Sent whenever any are filled in, so the server can report a set that
+      // isn't complete instead of it being dropped without a word.
+      ...(entry.choices.some((choice) => choice.trim()) ? { choices: entry.choices.map((choice) => choice.trim()) } : {}),
     }));
   }
   return out;
@@ -47,8 +63,9 @@ export const emptyQuizForm = () => ({
 });
 
 // Quiz editor shared by the admin quiz manager and the public suggestion form.
-// S3 image upload is only shown to admins, through allowUpload.
-export function QuizForm({ initial, slugLocked, allowUpload, submitLabel, errorMsg, onSave, onCancel }) {
+// S3 image upload is only shown to admins, through allowUpload, and so are the
+// daily quiz flags, through showDailyFlags.
+export function QuizForm({ initial, slugLocked, allowUpload, showDailyFlags, submitLabel, errorMsg, onSave, onCancel }) {
   const [form, setForm] = useState(() => ({
     ...initial,
     timeLimits: { easy: 360, medium: 480, hard: 600, ...initial.timeLimits },
@@ -82,7 +99,10 @@ export function QuizForm({ initial, slugLocked, allowUpload, submitLabel, errorM
       ...prev,
       difficulties: {
         ...prev.difficulties,
-        [level]: prev.difficulties[level].filter((_, i) => i !== index),
+        // The question that becomes first has nothing before it to lean on.
+        [level]: prev.difficulties[level]
+          .filter((_, i) => i !== index)
+          .map((entry, i) => (i === 0 && entry.followsPrevious ? { ...entry, followsPrevious: false } : entry)),
       },
     }));
   };
@@ -271,6 +291,44 @@ export function QuizForm({ initial, slugLocked, allowUpload, submitLabel, errorM
               >
                 &times;
               </button>
+              {showDailyFlags && (
+                <div className="daily-flags">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={entry.followsPrevious}
+                      disabled={index === 0 && !entry.followsPrevious}
+                      onChange={(e) => setEntry(level, index, 'followsPrevious', e.target.checked)}
+                    />{' '}
+                    Needs the previous question (shown as a lead-in in the daily quiz)
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={entry.dailyExcluded}
+                      onChange={(e) => setEntry(level, index, 'dailyExcluded', e.target.checked)}
+                    />{' '}
+                    Leave out of the daily quiz
+                  </label>
+                  <div className="daily-choice-inputs">
+                    <span>Daily quiz wrong answers (optional; all three replace the automatic ones)</span>
+                    {entry.choices.map((choice, i) => (
+                      <input
+                        key={i}
+                        className="form-control form-control-sm"
+                        placeholder={`Wrong answer ${i + 1}`}
+                        aria-label={`Daily quiz wrong answer ${i + 1}`}
+                        value={choice}
+                        onChange={(e) => {
+                          const choices = [...entry.choices];
+                          choices[i] = e.target.value;
+                          setEntry(level, index, 'choices', choices);
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           ))}
           <button type="button" className="btn btn-sm btn-outline-secondary" onClick={() => addEntry(level)}>

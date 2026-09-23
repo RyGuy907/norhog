@@ -72,6 +72,13 @@ export function Main() {
         </div>
 
         <div className="col-md-3">
+          <section className="daily-callout">
+            <h3>Today&apos;s Daily Quiz</h3>
+            <p>Answer five questions from across the site. Changes every day.</p>
+            <Link to="/daily" className="quiz-btn">Play the daily</Link>
+            <Link to="/practice" className="daily-callout-practice">Practice</Link>
+          </section>
+
           <div className="rec-box">
             <h4>Recommended Quizzes</h4>
             <ul className="recquiz list-group">
@@ -86,22 +93,23 @@ export function Main() {
             <RandomQuiz quizzes={quizzes} />
           </div>
 
-          <div className="suggest-box">
-            <h4>Have a quiz idea?</h4>
+          {/* Collapsed by default so the sidebar doesn't run far past the quiz grid. */}
+          <details className="suggest-box">
+            <summary><h4>Have a quiz idea?</h4></summary>
             <p>
               Anyone can write a quiz for Norhog — submit your questions and an admin will
               review them for the site.
             </p>
             <Link to="/suggest" className="btn btn-primary">Suggest a Quiz</Link>
-          </div>
+          </details>
 
-          <div className="suggest-box learn-box">
-            <h4>New to Norhog?</h4>
+          <details className="suggest-box learn-box">
+            <summary><h4>New to Norhog?</h4></summary>
             <p>
               See how scoring works, what the leaderboard tracks, and how the site is built.
             </p>
             <Link to="/about" className="btn btn-primary">Learn More</Link>
-          </div>
+          </details>
         </div>
       </div>
     </main>

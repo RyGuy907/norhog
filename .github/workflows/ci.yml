@@ -31,7 +31,7 @@ jobs:
 
       - run: npm ci
 
-      # eslint reports 0 errors and 5 warnings (react-hooks/set-state-in-effect).
+      # eslint reports 0 errors and 6 warnings (react-hooks/set-state-in-effect).
       # There is no --max-warnings 0 yet, since CI would then block on known
       # findings that don't break anything.
       - name: Lint

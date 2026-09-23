@@ -180,7 +180,7 @@ main h2 {
 
 /* In one row the nav needs about 377px, but a 375px phone has 335px of content
    width. Tighter padding and letter-spacing fit four items on a line, and
-   wrapping handles the rest (such as an admin's fifth item). This block has to
+   wrapping handles the rest (the fifth item, and an admin's sixth). This block has to
    come after the base .menu rules since it has the same specificity. */
 @media (max-width: 575px) {
   .menu {
@@ -528,13 +528,49 @@ button, .btn {
   border: 1px solid var(--gold);
   border-radius: 10px;
   box-shadow: var(--shadow);
-  margin-top: 18px;
-  padding: 16px;
+  margin-top: 12px;
+  padding: 10px 16px;
+}
+
+.suggest-box[open] {
+  padding-bottom: 16px;
+}
+
+.suggest-box summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  list-style: none;
+}
+
+.suggest-box summary::-webkit-details-marker {
+  display: none;
+}
+
+/* A chevron that turns when the box opens. */
+.suggest-box summary::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  transform: rotate(45deg);
+  transition: transform 0.15s;
+  margin-right: 4px;
+}
+
+.suggest-box[open] summary::after {
+  transform: rotate(-135deg);
 }
 
 .suggest-box h4 {
   color: var(--navy);
   font-size: 1.05rem;
+  margin: 0;
+}
+
+.suggest-box[open] h4 {
   margin-bottom: 8px;
 }
 

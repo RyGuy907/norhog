@@ -31,11 +31,31 @@ if (dbFlag !== -1 && !dbName) {
 const db = client.db(dbName);
 const quizCollection = db.collection('quizzes');
 
+// Daily quiz settings made on the live site (an exclusion or hand-written
+// wrong answers, from the admin page) aren't in seedData.js. They are carried
+// over onto the seed version of the same question, matched by its text, so a
+// sync doesn't quietly undo them.
+function keepLiveDailySettings(seed, existing) {
+  const difficulties = {};
+  for (const level of ['easy', 'medium', 'hard']) {
+    const live = new Map((existing?.difficulties?.[level] || []).map((entry) => [entry.question, entry]));
+    difficulties[level] = seed.difficulties[level].map((entry) => {
+      const match = live.get(entry.question);
+      const merged = { ...entry };
+      if (match?.daily === false && merged.daily === undefined) merged.daily = false;
+      if (Array.isArray(match?.choices) && !merged.choices) merged.choices = match.choices;
+      return merged;
+    });
+  }
+  return { ...seed, difficulties };
+}
+
 let updated = 0;
 let inserted = 0;
 let unchanged = 0;
-for (const quiz of seedQuizzes) {
-  const existing = await quizCollection.findOne({ slug: quiz.slug });
+for (const seedQuiz of seedQuizzes) {
+  const existing = await quizCollection.findOne({ slug: seedQuiz.slug });
+  const quiz = keepLiveDailySettings(seedQuiz, existing);
   if (!existing) {
     if (write) await quizCollection.insertOne(quiz);
     inserted += 1;

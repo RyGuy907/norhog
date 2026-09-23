@@ -19,6 +19,32 @@ node syncSeedQuizzes.mjs --db quiz    # target a different database
 It touches quiz content only. Scores, users, suggestions, and quizzes created
 through the admin UI are left alone.
 
+### Daily quiz flags
+
+The daily quiz (`service/daily.js`) draws five questions a day from every
+quiz. Two optional flags on a question control what it may use:
+
+- `followsPrevious: true` marks a question that leans on the one before it
+  ("Who was his queen?"). The daily quiz shows that earlier question and its
+  answer as a lead-in. A chain deeper than two lead-ins is left out.
+- `daily: false` keeps a question out of the daily quiz altogether.
+
+- `choices: [three wrong answers]` replaces the automatic multiple-choice
+  options. It also lets in a question the automatic options would leave out.
+
+All three can be set per question in the admin quiz editor, and the admin
+page's Upcoming Daily Quizzes list can exclude a question or edit its choices
+in one click. The flags live on the quiz documents, so edits to them in
+`seedData.js` reach an existing database only through `syncSeedQuizzes.mjs`.
+A sync keeps any exclusion or hand-written choices already set on the live
+site for a question whose text hasn't changed, so it doesn't undo admin work.
+
+**Deploying the daily quiz for the first time:** run the sync (dry run, then
+`--write`) before the new service goes live. Each day is built and stored the
+first time anyone opens `/daily`, and a day built before the flags arrive
+would keep its unflagged questions. If that happens, delete that day's
+document from the `daily` collection before anyone plays it.
+
 ## Demo players on the live site
 
 The live leaderboard is seeded with 18 fictional players so the boards, the

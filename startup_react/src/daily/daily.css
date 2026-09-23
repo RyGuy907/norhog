@@ -1,0 +1,496 @@
+/* main.container is needed to outrank the site-wide max-width on main. */
+main.container.daily-page {
+  max-width: 720px;
+}
+
+.daily-header {
+  text-align: center;
+  margin-bottom: 18px;
+}
+
+.daily-header h2 {
+  margin-bottom: 0;
+}
+
+.daily-kicker {
+  color: var(--gold-dark);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  margin-bottom: 4px;
+}
+
+.daily-card {
+  background-color: var(--card);
+  border: 1px solid var(--line);
+  border-top: 4px solid var(--gold);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  padding: 24px;
+}
+
+.daily-lede {
+  font-size: 1.1rem;
+}
+
+.daily-rules {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 16px;
+}
+
+.daily-rules li {
+  padding: 6px 0;
+  border-bottom: 1px dashed var(--line);
+}
+
+.daily-rules li:last-child {
+  border-bottom: none;
+}
+
+.daily-rules .daily-mark {
+  margin-right: 8px;
+}
+
+/* ---- Check and cross marks --------------------------------------------- */
+.daily-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5em;
+  height: 1.5em;
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 0.9em;
+  line-height: 1;
+  color: #fff;
+  flex: 0 0 auto;
+}
+
+.mark-typed {
+  background-color: var(--green);
+}
+
+.mark-choice {
+  background-color: var(--gold-dark);
+}
+
+.mark-miss {
+  background-color: var(--brick);
+}
+
+.daily-note {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.daily-streak {
+  font-weight: 600;
+  color: var(--brick);
+}
+
+.daily-start {
+  display: block;
+  margin: 18px auto 4px;
+  padding: 10px 28px;
+  font-size: 1.1rem;
+}
+
+.daily-count {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+/* ---- Progress ---------------------------------------------------------- */
+/* Practice rounds can run to twenty questions, so the circles wrap. */
+.daily-pips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  list-style: none;
+  padding: 0;
+  margin: 0 0 18px;
+}
+
+.daily-pip {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  color: var(--muted);
+  background-color: var(--parchment);
+}
+
+.daily-pip.pip-current {
+  border-color: var(--navy);
+  color: var(--navy);
+  font-weight: 700;
+}
+
+.daily-pip.pip-typed,
+.daily-pip.pip-choice,
+.daily-pip.pip-miss {
+  border: none;
+  background: none;
+}
+
+.daily-pip .daily-mark {
+  width: 36px;
+  height: 36px;
+  font-size: 1.05rem;
+}
+
+/* ---- Question ---------------------------------------------------------- */
+.daily-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.daily-source {
+  font-family: Georgia, 'Times New Roman', serif;
+  color: var(--navy);
+  font-weight: 600;
+}
+
+.daily-level {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  color: #fff;
+}
+
+.level-easy {
+  background-color: var(--green);
+}
+
+.level-medium {
+  background-color: var(--gold-dark);
+}
+
+.level-hard {
+  background-color: var(--brick);
+}
+
+.daily-leads {
+  background-color: var(--parchment);
+  border-left: 4px solid var(--line);
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+
+.daily-leads-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 4px;
+}
+
+.daily-lead {
+  margin-bottom: 2px;
+}
+
+.daily-lead strong {
+  color: var(--ink);
+}
+
+.daily-question {
+  font-size: 1.35rem;
+  font-family: Georgia, 'Times New Roman', serif;
+  color: var(--ink);
+  margin-bottom: 18px;
+}
+
+.daily-qnum {
+  color: var(--gold-dark);
+}
+
+.daily-input {
+  width: 100%;
+  font-size: 1.1rem;
+  padding: 10px 14px;
+  border: 2px solid var(--navy);
+  border-radius: 8px;
+  background-color: #fff;
+}
+
+.daily-hint {
+  color: var(--brick);
+  margin: 8px 0 0;
+  font-size: 0.95rem;
+}
+
+.daily-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 12px;
+}
+
+/* Inherits the button's colour, so it changes on hover in step with the rest
+   of the label instead of on its own timing. */
+.daily-points {
+  color: inherit;
+  opacity: 0.8;
+  font-size: 0.85em;
+}
+
+.daily-worth {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.daily-choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.daily-choice {
+  text-align: left;
+  padding: 12px 14px;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  background-color: #fff;
+  color: var(--ink);
+  font-size: 1rem;
+  transition: border-color 0.15s, transform 0.15s;
+}
+
+.daily-choice:not(:disabled):hover {
+  border-color: var(--navy);
+  transform: translateY(-1px);
+}
+
+.daily-choice:disabled {
+  opacity: 0.6;
+}
+
+.daily-choice.choice-correct {
+  border-color: var(--green);
+  background-color: #eaf5ed;
+  opacity: 1;
+}
+
+.daily-choice.choice-wrong {
+  border-color: var(--brick);
+  background-color: #f8e9e6;
+  opacity: 1;
+}
+
+.daily-feedback {
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-top: 6px;
+  border: 1px solid var(--line);
+}
+
+.feedback-typed {
+  border-left: 4px solid var(--green);
+}
+
+.feedback-choice {
+  border-left: 4px solid var(--gold);
+}
+
+.feedback-miss {
+  border-left: 4px solid var(--brick);
+}
+
+.daily-verdict {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 1.1rem;
+  margin-bottom: 4px;
+}
+
+.daily-reveal {
+  margin-bottom: 4px;
+}
+
+.daily-source-link {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+/* ---- Results ----------------------------------------------------------- */
+.daily-results {
+  text-align: center;
+}
+
+.daily-score {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 1.6rem;
+  color: var(--muted);
+  margin-bottom: 0;
+}
+
+.daily-score strong {
+  font-size: 3rem;
+  color: var(--navy);
+}
+
+.daily-streak-inline {
+  color: var(--brick);
+  font-weight: 600;
+}
+
+.daily-share-preview {
+  display: inline-block;
+  text-align: left;
+  font-family: inherit;
+  font-size: 1rem;
+  background-color: var(--parchment);
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin: 8px auto 12px;
+  white-space: pre-wrap;
+  max-width: 100%;
+}
+
+.daily-results .quiz-btn {
+  display: block;
+  margin: 0 auto;
+}
+
+.daily-recap {
+  list-style: none;
+  padding: 0;
+  margin: 22px 0 16px;
+  text-align: left;
+}
+
+.daily-recap li {
+  display: flex;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px dashed var(--line);
+}
+
+.daily-recap .daily-mark {
+  margin-top: 2px;
+}
+
+.daily-recap-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.daily-recap-points {
+  font-weight: 700;
+  white-space: nowrap;
+  margin-left: auto;
+}
+
+.points-typed {
+  color: var(--green);
+}
+
+.points-choice {
+  color: var(--gold-dark);
+}
+
+.points-miss {
+  color: var(--muted);
+}
+
+.daily-recap-a {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.daily-next {
+  margin-top: 8px;
+}
+
+/* ---- Home page callout -------------------------------------------------- */
+.daily-callout {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: linear-gradient(135deg, var(--navy-light), var(--navy));
+  color: var(--parchment);
+  border-radius: 10px;
+  padding: 16px 18px;
+  margin-bottom: 18px;
+  box-shadow: var(--shadow);
+}
+
+.daily-callout h3 {
+  color: var(--gold);
+  margin: 0 0 2px;
+  font-size: 1.3rem;
+}
+
+.daily-callout p {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.daily-callout .quiz-btn {
+  display: inline-block;
+  text-decoration: none;
+  text-align: center;
+  background-color: var(--gold);
+  color: var(--navy);
+  font-weight: 700;
+}
+
+.daily-callout-practice {
+  color: var(--parchment);
+  font-size: 0.9rem;
+  text-align: center;
+  opacity: 0.85;
+}
+
+.daily-callout-practice:hover {
+  color: var(--gold);
+  opacity: 1;
+}
+
+.daily-practice-link {
+  margin-top: 4px;
+}
+
+.daily-callout .quiz-btn:hover {
+  background-color: var(--gold-dark);
+  color: var(--navy);
+}
+
+@media (max-width: 575px) {
+  .daily-card {
+    padding: 18px 16px;
+  }
+
+  .daily-choices {
+    grid-template-columns: 1fr;
+  }
+
+  .daily-question {
+    font-size: 1.2rem;
+  }
+
+}

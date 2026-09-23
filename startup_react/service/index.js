@@ -7,8 +7,9 @@ import * as ImageStore from './imageStore.js';
 import { initWebSocket, broadcast } from './scoreBroadcaster.js';
 import { seedQuizzes } from './seedData.js';
 import { sanitizeRequest, asString, route, rateLimit } from './security.js';
-import { acceptedAnswers } from './answerMatch.js';
+import { acceptedAnswers, normalize } from './answerMatch.js';
 import { newSalt, lockAnswer } from './answerLock.js';
+import * as Daily from './daily.js';
 
 const app = express();
 const port = process.argv.length > 2 ? process.argv[2] : 4000;
@@ -307,6 +308,27 @@ function safeObjectPosition(value) {
   return tokens.every((t) => ok.test(t)) ? tokens.join(' ') : '';
 }
 
+// Hand-written wrong answers for the daily quiz's multiple choice. Returns
+// { choices } for exactly three distinct wrong answers, { error } when some
+// were given but they don't qualify, and {} when none were given. A choice
+// that matches any accepted spelling of the answer would be marked wrong when
+// picked, so those are refused too.
+function cleanChoices(value, entry) {
+  if (!Array.isArray(value)) {
+    return {};
+  }
+  const choices = value.map((choice) => asString(choice, 100)).filter(Boolean);
+  if (choices.length === 0) {
+    return {};
+  }
+  const correct = acceptedAnswers(entry);
+  const distinct = new Set(choices.map((choice) => normalize(choice)));
+  if (choices.length !== 3 || distinct.size !== 3 || [...distinct].some((choice) => correct.has(choice))) {
+    return { error: 'Daily quiz wrong answers need to be three different answers, none of them a correct one.' };
+  }
+  return { choices };
+}
+
 // Validates and cleans a quiz payload. Returns { quiz } or { error }.
 function validateQuiz(body) {
   const slug = asString(body.slug, 100) || '';
@@ -353,7 +375,23 @@ function validateQuiz(body) {
             .map((alt) => asString(alt, 100))
             .filter(Boolean)
         : [];
-      difficulties[level].push({ question, answer, accept });
+      const cleaned = { question, answer, accept };
+      // Flags for the daily quiz picker (see daily.js).
+      // A first question has nothing before it to lean on.
+      if (entry.followsPrevious === true && difficulties[level].length > 0) {
+        cleaned.followsPrevious = true;
+      }
+      if (entry.daily === false) {
+        cleaned.daily = false;
+      }
+      const { choices, error } = cleanChoices(entry.choices, cleaned);
+      if (error) {
+        return { error: `${error} (${level} question ${difficulties[level].length + 1})` };
+      }
+      if (choices) {
+        cleaned.choices = choices;
+      }
+      difficulties[level].push(cleaned);
     }
   }
 
@@ -381,6 +419,7 @@ apiRouter.post('/quiz', verifyAuth, verifyAdmin, writeLimiter, route(async (req,
     return res.status(409).send({ msg: 'A quiz with this slug already exists' });
   }
   await DB.addQuiz(quiz);
+  invalidatePool();
   res.status(201).send(quiz);
 }));
 
@@ -397,6 +436,7 @@ apiRouter.put('/quiz/:slug', verifyAuth, verifyAdmin, writeLimiter, route(async 
     ImageStore.deleteImage(existing.image);
   }
   await DB.updateQuiz(req.params.slug, quiz);
+  invalidatePool();
   res.status(200).send(quiz);
 }));
 
@@ -408,6 +448,7 @@ apiRouter.delete('/quiz/:slug', verifyAuth, verifyAdmin, writeLimiter, route(asy
   await DB.deleteQuiz(req.params.slug);
   await DB.deleteScoresForQuiz(req.params.slug);
   ImageStore.deleteImage(quiz.image);
+  invalidatePool();
   res.status(200).send({ msg: 'Quiz deleted' });
 }));
 
@@ -660,14 +701,190 @@ apiRouter.delete('/suggestions/:id', verifyAuth, verifyAdmin, route(async (req, 
   res.status(200).send({ msg: 'Suggestion removed' });
 }));
 
+// --- Daily quiz ---
+
+// Today's day, cached for the process. A day is built from the library the
+// first time anyone asks for it and stored, so it never changes once played.
+let cachedDay = null;
+
+// The prepared question pool, shared by practice rounds. Building it takes
+// about half a second, so it is kept and rebuilt after a quiz changes or ten
+// minutes pass.
+let cachedPool = null;
+const poolMaxAgeMs = 10 * 60 * 1000;
+
+async function getPreparedPool() {
+  if (!cachedPool || Date.now() - cachedPool.builtAt > poolMaxAgeMs) {
+    cachedPool = { prepared: Daily.prepare(await DB.getQuizzesForDaily()), builtAt: Date.now() };
+  }
+  return cachedPool.prepared;
+}
+
+function invalidatePool() {
+  cachedPool = null;
+}
+
+async function getOrCreateDay(date) {
+  if (cachedDay?.date === date) {
+    return cachedDay;
+  }
+  let day = await DB.getDaily(date);
+  if (!day) {
+    const built = Daily.buildDay(await DB.getQuizzesForDaily(), date, await DB.getUsedDailyKeys(date));
+    if (!built) {
+      return null;
+    }
+    day = await DB.addDaily(built);
+  }
+  cachedDay = day;
+  return day;
+}
+
+async function dailyStreak(user, today) {
+  return Daily.streakFrom(await DB.getDailyPlayDates(user.email), today);
+}
+
+apiRouter.get('/daily', optionalAuth, route(async (req, res) => {
+  const today = Daily.dailyDate();
+  const day = await getOrCreateDay(today);
+  if (!day) {
+    return res.status(503).send({ msg: "Today's quiz isn't ready yet. Please try again soon." });
+  }
+  const payload = { ...Daily.publicDay(day), nextResetAt: Daily.nextResetAt() };
+  if (req.user) {
+    payload.player = req.user.displayName;
+    payload.played = await DB.getDailyPlay(req.user.email, today);
+    payload.streak = await dailyStreak(req.user, today);
+  }
+  res.status(200).send(payload);
+}));
+
+// Records a signed-in player's result. Each player gets one per day; guests
+// keep theirs in the browser instead.
+apiRouter.post('/daily/result', optionalAuth, writeLimiter, route(async (req, res) => {
+  const today = Daily.dailyDate();
+  const date = Daily.isDateKey(req.body.date) ? req.body.date : null;
+  const { results } = req.body;
+  // Today's quiz, or yesterday's when it was started before midnight and
+  // finished within the grace period after it.
+  if (date !== today && !Daily.isInGracePeriod(date)) {
+    return res.status(400).send({ msg: 'That daily quiz has ended' });
+  }
+  if (!Daily.isValidResults(results)) {
+    return res.status(400).send({ msg: 'Invalid results' });
+  }
+  if (!req.user) {
+    return res.status(200).send({ saved: false });
+  }
+  const added = await DB.addDailyPlay({
+    user: req.user.email,
+    date,
+    number: Daily.dailyNumber(date),
+    results,
+    score: Daily.scoreResults(results),
+    playedAt: new Date().toISOString(),
+  });
+  const streak = await dailyStreak(req.user, today);
+  if (!added) {
+    return res.status(409).send({ msg: "You've already played this daily quiz", played: await DB.getDailyPlay(req.user.email, date), streak });
+  }
+  res.status(201).send({ saved: true, streak });
+}));
+
+// The coming days as the picker would build them today, for admins to check.
+// Days already stored are shown as stored.
+apiRouter.get('/daily/preview', verifyAuth, verifyAdmin, route(async (req, res) => {
+  const count = Math.min(Math.max(parseInt(req.query.days, 10) || 14, 1), 60);
+  const today = Daily.dailyDate();
+  const quizzes = await DB.getQuizzesForDaily();
+  const prepared = Daily.prepare(quizzes);
+  const used = await DB.getUsedDailyKeys(today);
+  const days = [];
+  for (let offset = 0; offset < count; offset++) {
+    const date = Daily.addDays(today, offset);
+    const stored = await DB.getDaily(date);
+    const day = stored || Daily.buildDay(quizzes, date, used, prepared);
+    if (!day) {
+      break;
+    }
+    day.questions.forEach((q) => used.add(q.key));
+    days.push({ ...day, stored: Boolean(stored) });
+  }
+  res.status(200).send(days);
+}));
+
+// A practice round in the daily quiz's format, as many times as a player
+// likes. Nothing is recorded. The player sends the ids of questions they've
+// already seen so the round avoids them.
+const maxSeenIds = 3000;
+
+apiRouter.post('/practice', writeLimiter, route(async (req, res) => {
+  const counts = Daily.practiceCounts(req.body);
+  if (!counts) {
+    return res.status(400).send({
+      msg: `Choose up to ${Daily.practiceLimits.perLevel} questions per difficulty and ${Daily.practiceLimits.total} in all.`,
+    });
+  }
+  const seenIds = Array.isArray(req.body.seen) ? req.body.seen.slice(-maxSeenIds) : [];
+  const seen = new Set(seenIds.map((id) => asString(id, 20)).filter(Boolean));
+
+  const round = Daily.buildPracticeRound(await getPreparedPool(), counts, seen);
+  if (!round) {
+    return res.status(503).send({ msg: "Couldn't put a round together. Try fewer questions." });
+  }
+  res.status(200).send({ questions: round.map(Daily.publicQuestion) });
+}));
+
+// Takes a question out of the daily pool (or puts it back). A day that is
+// already stored keeps its questions.
+apiRouter.post('/daily/exclude', verifyAuth, verifyAdmin, writeLimiter, route(async (req, res) => {
+  const { slug, level, index, question } = req.body;
+  const allowed = req.body.allowed === true;
+  const ok = await DB.setQuestionDaily(asString(slug, 100), asString(level, 20), index, asString(question, 300), allowed);
+  if (!ok) {
+    return res.status(404).send({ msg: 'Question not found. The quiz may have been edited; reload and try again.' });
+  }
+  invalidatePool();
+  res.status(200).send({ msg: allowed ? 'Question allowed in the daily quiz' : 'Question excluded from the daily quiz' });
+}));
+
+// Sets a question's hand-written wrong answers, or clears them (an empty list)
+// so the automatic ones come back. A day already served keeps its choices.
+apiRouter.post('/daily/choices', verifyAuth, verifyAdmin, writeLimiter, route(async (req, res) => {
+  const { slug, level, index, question } = req.body;
+  const notFound = { msg: 'Question not found. The quiz may have been edited; reload and try again.' };
+  const validTarget = Number.isInteger(index) && index >= 0 && ['easy', 'medium', 'hard'].includes(level);
+  const quiz = validTarget ? await DB.getQuiz(asString(slug, 100)) : null;
+  const entry = quiz?.difficulties?.[level]?.[index];
+  if (!entry || entry.question !== asString(question, 300)) {
+    return res.status(404).send(notFound);
+  }
+  const clearing = Array.isArray(req.body.choices) && req.body.choices.length === 0;
+  const { choices, error } = clearing ? {} : cleanChoices(req.body.choices, entry);
+  if (!clearing && !choices) {
+    return res.status(400).send({ msg: error || 'Enter three different wrong answers, none of them a correct one.' });
+  }
+  const saved = await DB.setQuestionChoices(quiz.slug, level, index, entry.question, choices || null);
+  if (!saved) {
+    return res.status(404).send(notFound);
+  }
+  invalidatePool();
+  res.status(200).send({ choices: choices || null });
+}));
+
 // Unknown API routes get a JSON 404 instead of the React app's HTML.
 apiRouter.use((_req, res) => {
   res.status(404).send({ msg: 'Not found' });
 });
 
-// Any unhandled error becomes a 500 instead of taking the process down.
+// Any unhandled error becomes a 500 instead of taking the process down. A
+// request the body parser refused (malformed JSON, or over the size limit)
+// keeps its own 400 or 413, since that's the client's error, not the server's.
 // eslint-disable-next-line no-unused-vars
 app.use((err, _req, res, _next) => {
+  if (err?.type && Number.isInteger(err.status) && err.status >= 400 && err.status < 500) {
+    return res.status(err.status).send({ msg: err.status === 413 ? 'Request too large' : 'Invalid request' });
+  }
   console.log(`Unhandled error: ${err?.message}`);
   res.status(500).send({ msg: 'Something went wrong' });
 });
@@ -728,6 +945,12 @@ if (!process.env.VITEST) {
 export function resetRateLimits() {
   authLimiter.reset();
   writeLimiter.reset();
+}
+
+// Only used by tests, which swap the database contents between cases.
+export function resetDailyCache() {
+  cachedDay = null;
+  cachedPool = null;
 }
 
 export { app };
