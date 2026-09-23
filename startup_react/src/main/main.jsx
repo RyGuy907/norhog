@@ -10,6 +10,19 @@ import './main.css';
 // encodeURI isn't used because it would double-encode existing escapes (%20 -> %2520).
 const cssUrl = (url) => url.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 
+// Rendered twice: above the grid on phones, where the stacked sidebar would bury
+// it under every quiz tile, and at the top of the sidebar from md up.
+function DailyCallout({ className }) {
+  return (
+    <section className={`daily-callout ${className}`}>
+      <h3>Today&apos;s Daily Quiz</h3>
+      <p>Answer five questions from across the site. Changes every day.</p>
+      <Link to="/daily" className="quiz-btn">Play the daily</Link>
+      <Link to="/practice" className="daily-callout-practice">Practice</Link>
+    </section>
+  );
+}
+
 export function Main() {
   usePageTitle();
   const navigate = useNavigate();
@@ -48,6 +61,8 @@ export function Main() {
         <p className="tagline">Race the clock. Know your history. Climb the leaderboard.</p>
       </div>
 
+      <DailyCallout className="d-md-none" />
+
       <div className="row">
         <div className="col-md-9">
           <h2>Quizzes</h2>
@@ -71,13 +86,8 @@ export function Main() {
           </div>
         </div>
 
-        <div className="col-md-3">
-          <section className="daily-callout">
-            <h3>Today&apos;s Daily Quiz</h3>
-            <p>Answer five questions from across the site. Changes every day.</p>
-            <Link to="/daily" className="quiz-btn">Play the daily</Link>
-            <Link to="/practice" className="daily-callout-practice">Practice</Link>
-          </section>
+        <div className="col-md-3 home-sidebar">
+          <DailyCallout className="d-none d-md-flex" />
 
           <div className="rec-box">
             <h4>Recommended Quizzes</h4>

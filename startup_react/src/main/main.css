@@ -16,6 +16,16 @@
   font-style: italic;
 }
 
+/* Below Bootstrap's md breakpoint the sidebar stacks under the quiz grid, so it
+   needs space above it. The margin is wider than the grid's 18px gap so the
+   first sidebar box doesn't read as another tile. `.row >` outranks Bootstrap's
+   `.row > *` gutter reset. */
+@media (max-width: 767.98px) {
+  .row > .home-sidebar {
+    margin-top: 20px;
+  }
+}
+
 .quiz-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
